@@ -1,41 +1,24 @@
-# Prerequisites
-*.d
+﻿# Visual Studio
+.vs/
+*.user
+*.suo
+*.vsidx
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
+# CMake build output
+build/
+out/
+CMakeSettings.json
+
+# Kompilacja
+*.exe
 *.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Linker files
+*.pdb
 *.ilk
 
-# Debugger Files
-*.pdb
+# IDE
+.vscode/
+.idea/
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# debug information files
-*.dwo
+# OS
+Thumbs.db
+.DS_Store

@@ -21,5 +21,11 @@ target_link_libraries(CubeCraft PRIVATE glfw glad::glad glm::glm)
 
 target_include_directories(CubeCraft PRIVATE ${Stb_INCLUDE_DIR})
 
+add_custom_command(TARGET CubeCraft POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/shaders
+        $<TARGET_FILE_DIR:CubeCraft>/shaders
+)
+
 # Set starting project
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT CubeCraft)
