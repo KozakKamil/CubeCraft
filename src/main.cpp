@@ -5,6 +5,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "Texture.h"
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -13,306 +15,218 @@
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 
+// === Kamera ===
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-float yaw = -90.0f;
-float pitch = 0.0f;
-
-float lastMouseX = WINDOW_WIDTH / 2.0f;
-float lastMouseY = WINDOW_HEIGHT / 2.0f;
+float yaw = -90.0f, pitch = 0.0f;
+float lastMouseX = WINDOW_WIDTH / 2.0f, lastMouseY = WINDOW_HEIGHT / 2.0f;
 bool firstMouse = true;
+float deltaTime = 0.0f, lastFrame = 0.0f;
 
-float deltaTime = 0.0f;
-float lastFrame = 0.0f;
-
-
-// Helper function read whole file to string
 std::string loadFile(const std::string& path) {
-	std::ifstream file(path);
-	if (!file.is_open()) {
-		std::cerr << "Cannot read the file: " << path << "\n";
-		return "";
-	}
-	std::stringstream ss;
-	ss << file.rdbuf();
-	return ss.str();
+    std::ifstream file(path);
+    if (!file.is_open()) { std::cerr << "Cannot read: " << path << "\n"; return ""; }
+    std::stringstream ss; ss << file.rdbuf(); return ss.str();
 }
 
-// Compilation of one shader
-
-GLuint compileShader(GLenum type, const std::string& source) {
-	GLuint shader = glCreateShader(type);
-	const char* src = source.c_str();
-	glShaderSource(shader, 1, &src, nullptr);
-	glCompileShader(shader);
-
-	//Checking compilation errors
-	GLint success = GL_FALSE;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-	if (success != GL_TRUE) {
-		GLint logLen = 0;
-		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLen);
-
-		std::string log(logLen, '\0');
-		glGetShaderInfoLog(shader, logLen, nullptr, log.data());
-
-		std::cerr << "Compilation shader error:\n" << log << "\n";
-
-		glDeleteShader(shader);
-		return 0;
-	}
-	return shader;
+GLuint compileShader(GLenum type, const std::string& src) {
+    GLuint s = glCreateShader(type);
+    const char* c = src.c_str();
+    glShaderSource(s, 1, &c, nullptr);
+    glCompileShader(s);
+    GLint ok; glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
+    if (!ok) { char log[512]; glGetShaderInfoLog(s, 512, nullptr, log); std::cerr << "Shader err:\n" << log << "\n"; }
+    return s;
 }
 
-// Creating shader program
-
-GLuint createShaderProgram(const std::string& vertPath, const std::string& fragPath) {
-	std::string vertSrc = loadFile(vertPath);
-	std::string fragSrc = loadFile(fragPath);
-
-	GLuint vert = compileShader(GL_VERTEX_SHADER, vertSrc);
-	GLuint frag = compileShader(GL_FRAGMENT_SHADER, fragSrc);
-
-	GLuint program = glCreateProgram();
-	glAttachShader(program, vert);
-	glAttachShader(program, frag);
-	glLinkProgram(program);
-
-	// Checking linking errors
-	GLint success;
-	glGetProgramiv(program, GL_LINK_STATUS, &success);
-	if (!success) {
-		char log[512];
-		glGetProgramInfoLog(program, 512, nullptr, log);
-		std::cerr << "Error linking shader program:\n" << log << "\n";
-	}
-
-	glDeleteShader(vert);
-	glDeleteShader(frag);
-
-	return program;
+GLuint createShaderProgram(const std::string& vp, const std::string& fp) {
+    GLuint v = compileShader(GL_VERTEX_SHADER, loadFile(vp));
+    GLuint f = compileShader(GL_FRAGMENT_SHADER, loadFile(fp));
+    GLuint p = glCreateProgram();
+    glAttachShader(p, v); glAttachShader(p, f); glLinkProgram(p);
+    GLint ok; glGetProgramiv(p, GL_LINK_STATUS, &ok);
+    if (!ok) { char log[512]; glGetProgramInfoLog(p, 512, nullptr, log); std::cerr << "Link err:\n" << log << "\n"; }
+    glDeleteShader(v); glDeleteShader(f);
+    return p;
 }
 
-// Callbacks
+void framebuffer_size_callback(GLFWwindow*, int w, int h) { glViewport(0, 0, w, h); }
 
-void framebuffer_size_callback(GLFWwindow*, int width, int height) {
-	glViewport(0, 0, width, height);
+void mouse_callback(GLFWwindow*, double x, double y) {
+    if (firstMouse) { lastMouseX = (float)x; lastMouseY = (float)y; firstMouse = false; }
+    float dx = (float)x - lastMouseX;
+    float dy = lastMouseY - (float)y;
+    lastMouseX = (float)x; lastMouseY = (float)y;
+    float sens = 0.1f;
+    yaw += dx * sens; pitch += dy * sens;
+    if (pitch > 89.0f) pitch = 89.0f;
+    if (pitch < -89.0f) pitch = -89.0f;
+    glm::vec3 f;
+    f.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    f.y = sin(glm::radians(pitch));
+    f.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    cameraFront = glm::normalize(f);
 }
 
-void mouse_callback(GLFWwindow*, double xpos, double ypos) {
-	if (firstMouse) {
-		lastMouseX = (float)xpos;
-		lastMouseY = (float)ypos;
-		firstMouse = false;
-	}
-
-	float xoffset = (float)xpos - lastMouseX;
-	float yoffset = lastMouseY - (float)ypos;
-	lastMouseX = (float)xpos;
-	lastMouseY = (float)ypos;
-
-	float sensitivity = 0.1f;
-	xoffset *= sensitivity;
-	yoffset *= sensitivity;
-
-	yaw += xoffset;
-	pitch += yoffset;
-
-	if (pitch > 89.0f) {
-		pitch = 89.0f;
-	}
-
-	if (pitch < -89.0f) {
-		pitch = -89.0f;
-	}
-
-	glm::vec3 front;
-	front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-	front.y = sin(glm::radians(pitch));
-	front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-	cameraFront = glm::normalize(front);
+void processInput(GLFWwindow* w) {
+    if (glfwGetKey(w, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(w, true);
+    float sp = 5.0f * deltaTime;
+    if (glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) sp *= 3.0f;
+    if (glfwGetKey(w, GLFW_KEY_W) == GLFW_PRESS) cameraPos += sp * cameraFront;
+    if (glfwGetKey(w, GLFW_KEY_S) == GLFW_PRESS) cameraPos -= sp * cameraFront;
+    if (glfwGetKey(w, GLFW_KEY_A) == GLFW_PRESS) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * sp;
+    if (glfwGetKey(w, GLFW_KEY_D) == GLFW_PRESS) cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * sp;
+    if (glfwGetKey(w, GLFW_KEY_SPACE) == GLFW_PRESS) cameraPos += sp * cameraUp;
+    if (glfwGetKey(w, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) cameraPos -= sp * cameraUp;
 }
-
-void processInput(GLFWwindow* window) {
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-		glfwSetWindowShouldClose(window, true);
-	}
-
-	float speed = 5.0f * deltaTime;
-	if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		cameraPos += speed * cameraFront;
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		cameraPos -= speed * cameraFront;
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * speed;
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * speed;
-	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-		cameraPos += speed * cameraUp;
-	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
-		cameraPos -= speed * cameraUp;
-}
-
-// Main
 
 int main() {
-	// GLFW init
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	if (!glfwInit()) {
-		std::cerr << "Couldn't initialize GLFW\n";
-		return -1;
-	}
+    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "CubeCraft - Textured", nullptr, nullptr);
+    if (!window) { glfwTerminate(); return -1; }
 
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwMakeContextCurrent(window);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-	GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "CubeCraft - 3D Cube", nullptr, nullptr);
-	if (!window) {
-		std::cerr << "Couldn't open window\n";
-		glfwTerminate();
-		return -1;
-	}
-	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-	glfwSetCursorPosCallback(window, mouse_callback);
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+    std::cout << "OpenGL: " << glGetString(GL_VERSION) << "\n";
 
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-		std::cerr << "Couldn't load GLAD\n";
-		return -1;
-	}
-	
-	std::cout << "OpenGL: " << glGetString(GL_VERSION) << "\n";
-	std::cout << "GPU: " << glGetString(GL_RENDERER) << "\n";
+    glEnable(GL_DEPTH_TEST);
 
-	float vertices[] = {
-		// pozycja              // kolor
-		// Tyl (Z = -0.5) - czerwony
-		-0.5f, -0.5f, -0.5f,    1.0f, 0.0f, 0.0f,
-		 0.5f, -0.5f, -0.5f,    1.0f, 0.0f, 0.0f,
-		 0.5f,  0.5f, -0.5f,    1.0f, 0.0f, 0.0f,
-		 0.5f,  0.5f, -0.5f,    1.0f, 0.0f, 0.0f,
-		-0.5f,  0.5f, -0.5f,    1.0f, 0.0f, 0.0f,
-		-0.5f, -0.5f, -0.5f,    1.0f, 0.0f, 0.0f,
+    // ============================================================
+    // Kostka z UV - atlas 48x16 z 3 polami (0-1/3, 1/3-2/3, 2/3-1)
+    //  TILE 0 (0.00 - 0.33) = gora (trawa)
+    //  TILE 1 (0.33 - 0.67) = bok (ziemia+trawa)
+    //  TILE 2 (0.67 - 1.00) = dol (ziemia)
+    // ============================================================
+    constexpr float U0 = 0.0f, U1 = 1.0f / 3.0f;  // tile 0
+    constexpr float U2 = 1.0f / 3.0f, U3 = 2.0f / 3.0f; // tile 1
+    constexpr float U4 = 2.0f / 3.0f, U5 = 1.0f;        // tile 2
 
-		// Przod (Z = 0.5) - zielony
-		-0.5f, -0.5f,  0.5f,    0.0f, 1.0f, 0.0f,
-		 0.5f, -0.5f,  0.5f,    0.0f, 1.0f, 0.0f,
-		 0.5f,  0.5f,  0.5f,    0.0f, 1.0f, 0.0f,
-		 0.5f,  0.5f,  0.5f,    0.0f, 1.0f, 0.0f,
-		-0.5f,  0.5f,  0.5f,    0.0f, 1.0f, 0.0f,
-		-0.5f, -0.5f,  0.5f,    0.0f, 1.0f, 0.0f,
+    float vertices[] = {
+        // pozycja              // UV
+        // Tyl (bok)
+        -0.5f, -0.5f, -0.5f,    U3, 0.0f,
+         0.5f, -0.5f, -0.5f,    U2, 0.0f,
+         0.5f,  0.5f, -0.5f,    U2, 1.0f,
+         0.5f,  0.5f, -0.5f,    U2, 1.0f,
+        -0.5f,  0.5f, -0.5f,    U3, 1.0f,
+        -0.5f, -0.5f, -0.5f,    U3, 0.0f,
 
-		// Lewo (X = -0.5) - niebieski
-		-0.5f,  0.5f,  0.5f,    0.0f, 0.0f, 1.0f,
-		-0.5f,  0.5f, -0.5f,    0.0f, 0.0f, 1.0f,
-		-0.5f, -0.5f, -0.5f,    0.0f, 0.0f, 1.0f,
-		-0.5f, -0.5f, -0.5f,    0.0f, 0.0f, 1.0f,
-		-0.5f, -0.5f,  0.5f,    0.0f, 0.0f, 1.0f,
-		-0.5f,  0.5f,  0.5f,    0.0f, 0.0f, 1.0f,
+        // Przod (bok)
+        -0.5f, -0.5f,  0.5f,    U2, 0.0f,
+         0.5f, -0.5f,  0.5f,    U3, 0.0f,
+         0.5f,  0.5f,  0.5f,    U3, 1.0f,
+         0.5f,  0.5f,  0.5f,    U3, 1.0f,
+        -0.5f,  0.5f,  0.5f,    U2, 1.0f,
+        -0.5f, -0.5f,  0.5f,    U2, 0.0f,
 
-		// Prawo (X = 0.5) - zolty
-		 0.5f,  0.5f,  0.5f,    1.0f, 1.0f, 0.0f,
-		 0.5f,  0.5f, -0.5f,    1.0f, 1.0f, 0.0f,
-		 0.5f, -0.5f, -0.5f,    1.0f, 1.0f, 0.0f,
-		 0.5f, -0.5f, -0.5f,    1.0f, 1.0f, 0.0f,
-		 0.5f, -0.5f,  0.5f,    1.0f, 1.0f, 0.0f,
-		 0.5f,  0.5f,  0.5f,    1.0f, 1.0f, 0.0f,
+        // Lewo (bok)
+        -0.5f,  0.5f,  0.5f,    U3, 1.0f,
+        -0.5f,  0.5f, -0.5f,    U2, 1.0f,
+        -0.5f, -0.5f, -0.5f,    U2, 0.0f,
+        -0.5f, -0.5f, -0.5f,    U2, 0.0f,
+        -0.5f, -0.5f,  0.5f,    U3, 0.0f,
+        -0.5f,  0.5f,  0.5f,    U3, 1.0f,
 
-		 // Dol (Y = -0.5) - magenta
-		 -0.5f, -0.5f, -0.5f,    1.0f, 0.0f, 1.0f,
-		  0.5f, -0.5f, -0.5f,    1.0f, 0.0f, 1.0f,
-		  0.5f, -0.5f,  0.5f,    1.0f, 0.0f, 1.0f,
-		  0.5f, -0.5f,  0.5f,    1.0f, 0.0f, 1.0f,
-		 -0.5f, -0.5f,  0.5f,    1.0f, 0.0f, 1.0f,
-		 -0.5f, -0.5f, -0.5f,    1.0f, 0.0f, 1.0f,
+        // Prawo (bok)
+         0.5f,  0.5f,  0.5f,    U2, 1.0f,
+         0.5f,  0.5f, -0.5f,    U3, 1.0f,
+         0.5f, -0.5f, -0.5f,    U3, 0.0f,
+         0.5f, -0.5f, -0.5f,    U3, 0.0f,
+         0.5f, -0.5f,  0.5f,    U2, 0.0f,
+         0.5f,  0.5f,  0.5f,    U2, 1.0f,
 
-		 // Gora (Y = 0.5) - cyjan
-		 -0.5f,  0.5f, -0.5f,    0.0f, 1.0f, 1.0f,
-		  0.5f,  0.5f, -0.5f,    0.0f, 1.0f, 1.0f,
-		  0.5f,  0.5f,  0.5f,    0.0f, 1.0f, 1.0f,
-		  0.5f,  0.5f,  0.5f,    0.0f, 1.0f, 1.0f,
-		 -0.5f,  0.5f,  0.5f,    0.0f, 1.0f, 1.0f,
-		 -0.5f,  0.5f, -0.5f,    0.0f, 1.0f, 1.0f
-	};
+         // Dol (ziemia)
+         -0.5f, -0.5f, -0.5f,    U4, 0.0f,
+          0.5f, -0.5f, -0.5f,    U5, 0.0f,
+          0.5f, -0.5f,  0.5f,    U5, 1.0f,
+          0.5f, -0.5f,  0.5f,    U5, 1.0f,
+         -0.5f, -0.5f,  0.5f,    U4, 1.0f,
+         -0.5f, -0.5f, -0.5f,    U4, 0.0f,
 
-	GLuint VAO, VBO;
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
+         // Gora (trawa)
+         -0.5f,  0.5f, -0.5f,    U0, 0.0f,
+          0.5f,  0.5f, -0.5f,    U1, 0.0f,
+          0.5f,  0.5f,  0.5f,    U1, 1.0f,
+          0.5f,  0.5f,  0.5f,    U1, 1.0f,
+         -0.5f,  0.5f,  0.5f,    U0, 1.0f,
+         -0.5f,  0.5f, -0.5f,    U0, 0.0f
+    };
 
-	glBindVertexArray(VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    GLuint VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
+    // Atrybut 0: pozycja (3 floaty)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // Atrybut 1: UV (2 floaty, offset 12 bajtow)
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 
-	GLuint shaderProgram = createShaderProgram("shaders/basic.vert", "shaders/basic.frag");
+    GLuint shaderProgram = createShaderProgram("shaders/basic.vert", "shaders/basic.frag");
 
-	glm::vec3 cubePostions[] = {
-		glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3(2.0f, 0.0f, -3.0f),
-		glm::vec3(-2.5f, 1.0f, -5.0f),
-		glm::vec3(1.5f, -1.0f, -7.0f),
-		glm::vec3(-1.0f, 0.5f,-2.0f)
-	};
+    // Proceduralny atlas trawy
+    Texture grassAtlas;
 
-	// Main loop
-	while (!glfwWindowShouldClose(window)) {
+    glm::vec3 cubePositions[] = {
+        glm::vec3(0.0f,  0.0f,  0.0f),
+        glm::vec3(2.0f,  0.0f, -3.0f),
+        glm::vec3(-2.5f,  1.0f, -5.0f),
+        glm::vec3(1.5f, -1.0f, -7.0f),
+        glm::vec3(-1.0f,  0.5f, -2.0f),
+    };
 
-		float currentFrame = (float)glfwGetTime();
-		deltaTime = currentFrame - lastFrame;
-		lastFrame = currentFrame;
-		processInput(window);
+    glUseProgram(shaderProgram);
+    glUniform1i(glGetUniformLocation(shaderProgram, "uTexture"), 0);  // sampler uzyje unit 0
 
-		glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    while (!glfwWindowShouldClose(window)) {
+        float t = (float)glfwGetTime();
+        deltaTime = t - lastFrame;
+        lastFrame = t;
 
-		glUseProgram(shaderProgram);
+        processInput(window);
 
-		glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        glClearColor(0.5f, 0.7f, 0.9f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glm::mat4 projection = glm::perspective(
-			glm::radians(70.0f),
-			(float)WINDOW_WIDTH / WINDOW_HEIGHT,
-			0.1f, 1000.0f
-		);
+        glUseProgram(shaderProgram);
+        grassAtlas.bind(0);
 
-		GLint viewLoc = glGetUniformLocation(shaderProgram, "uView");
-		GLint projLoc = glGetUniformLocation(shaderProgram, "uProjection");
-		GLint modelLoc = glGetUniformLocation(shaderProgram, "uModel");
+        glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        glm::mat4 projection = glm::perspective(glm::radians(70.0f),
+            (float)WINDOW_WIDTH / WINDOW_HEIGHT, 0.1f, 1000.0f);
 
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-		glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "uView"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "uProjection"), 1, GL_FALSE, glm::value_ptr(projection));
 
-		glBindVertexArray(VAO);
+        glBindVertexArray(VAO);
 
-		for (int i = 0; i < 5; i++) {
-			glm::mat4 model = glm::mat4(1.0f);
-			model = glm::translate(model, cubePostions[i]);
+        for (int i = 0; i < 5; i++) {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, cubePositions[i]);
+            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "uModel"), 1, GL_FALSE, glm::value_ptr(model));
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
-			model = glm::rotate(model, (float)glfwGetTime() * glm::radians(20.0f * (i + 1)),
-				glm::vec3(0.5f, 1.0f, 0.3f));
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
 
-			glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-			glDrawArrays(GL_TRIANGLES, 0, 36);
-		}
-
-
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-	}
-
-	// Cleaning
-	glDeleteVertexArrays(1, &VAO);
-	glDeleteBuffers(1, &VBO);
-	glDeleteProgram(shaderProgram);
-
-	glfwTerminate();
-	return 0;
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteProgram(shaderProgram);
+    glfwTerminate();
+    return 0;
 }

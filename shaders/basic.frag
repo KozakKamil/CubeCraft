@@ -1,11 +1,10 @@
 #version 330 core
 
-//Input: color from the vertex shader
-in vec3 vertexColor;
-
-//Output: the final color of the pixel
+in vec2 vUV;
 out vec4 FragColor;
 
+uniform sampler2D uTexture;
+
 void main() {
-	FragColor = vec4(vertexColor, 1.0);
+    FragColor = texture(uTexture, vUV);
 }

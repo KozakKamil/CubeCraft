@@ -14,12 +14,20 @@ find_package(Stb REQUIRED)
 # Executable
 add_executable(CubeCraft
     src/main.cpp
+    src/Texture.cpp
 )
 
 # Link libraries
-target_link_libraries(CubeCraft PRIVATE glfw glad::glad glm::glm)
+target_link_libraries(CubeCraft PRIVATE
+    glfw
+    glad::glad
+    glm::glm
+)
 
-target_include_directories(CubeCraft PRIVATE ${Stb_INCLUDE_DIR})
+target_include_directories(CubeCraft PRIVATE
+    ${Stb_INCLUDE_DIR}
+    src
+)
 
 add_custom_command(TARGET CubeCraft POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
