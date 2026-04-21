@@ -122,6 +122,10 @@ int main() {
         shader.setMat4("uView", view);
         shader.setMat4("uProjection", proj);
 
+        glm::vec3 lightDir = glm::normalize(glm::vec3(-0.3f, -1.0f, -0.4f));
+        shader.setVec3("uLightDir", lightDir);
+        shader.setFloat("uAmbient", 0.35f);
+
         world.draw(shader);
 
         glfwSwapBuffers(window);

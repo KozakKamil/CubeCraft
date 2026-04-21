@@ -61,8 +61,8 @@ void Chunk::generateTerrain() {
 }
 
 void Chunk::buildMesh() {
-	std::vector<float> verts;
-	verts.reserve(10000);
+    std::vector<float> verts;
+    verts.reserve(10000);
 
     auto addFace = [&](int x, int y, int z, int face, BlockType type) {
         float uMin, uMax;
@@ -70,61 +70,82 @@ void Chunk::buildMesh() {
 
         float fx = (float)x, fy = (float)y, fz = (float)z;
 
-        float quad[6 * 5];
+        // Normal w zaleznosci od kierunku sciany
+        float nx = 0, ny = 0, nz = 0;
+        switch (face) {
+        case 0: nx = 1; break; // +X
+        case 1: nx = -1; break; // -X
+        case 2: ny = 1; break; // +Y
+        case 3: ny = -1; break; // -Y
+        case 4: nz = 1; break; // +Z
+        case 5: nz = -1; break; // -Z
+        }
+
+        // Helper do wpisywania jednego wierzcholka (8 floatow)
+        auto push = [&](float px, float py, float pz, float u, float v) {
+            verts.push_back(px);
+            verts.push_back(py);
+            verts.push_back(pz);
+            verts.push_back(u);
+            verts.push_back(v);
+            verts.push_back(nx);
+            verts.push_back(ny);
+            verts.push_back(nz);
+            };
 
         switch (face) {
-        case 0:
-            quad[0] = fx + 1; quad[1] = fy;   quad[2] = fz;   quad[3] = uMin; quad[4] = 0;
-            quad[5] = fx + 1; quad[6] = fy;   quad[7] = fz + 1; quad[8] = uMax; quad[9] = 0;
-            quad[10] = fx + 1; quad[11] = fy + 1; quad[12] = fz + 1; quad[13] = uMax; quad[14] = 1;
-            quad[15] = fx + 1; quad[16] = fy + 1; quad[17] = fz + 1; quad[18] = uMax; quad[19] = 1;
-            quad[20] = fx + 1; quad[21] = fy + 1; quad[22] = fz;  quad[23] = uMin; quad[24] = 1;
-            quad[25] = fx + 1; quad[26] = fy;  quad[27] = fz;  quad[28] = uMin; quad[29] = 0;
+        case 0: // +X (prawo)
+            push(fx + 1, fy, fz, uMin, 0);
+            push(fx + 1, fy, fz + 1, uMax, 0);
+            push(fx + 1, fy + 1, fz + 1, uMax, 1);
+            push(fx + 1, fy + 1, fz + 1, uMax, 1);
+            push(fx + 1, fy + 1, fz, uMin, 1);
+            push(fx + 1, fy, fz, uMin, 0);
             break;
-        case 1:
-            quad[0] = fx;   quad[1] = fy;   quad[2] = fz + 1; quad[3] = uMin; quad[4] = 0;
-            quad[5] = fx;   quad[6] = fy;   quad[7] = fz;   quad[8] = uMax; quad[9] = 0;
-            quad[10] = fx;  quad[11] = fy + 1; quad[12] = fz;  quad[13] = uMax; quad[14] = 1;
-            quad[15] = fx;  quad[16] = fy + 1; quad[17] = fz;  quad[18] = uMax; quad[19] = 1;
-            quad[20] = fx;  quad[21] = fy + 1; quad[22] = fz + 1; quad[23] = uMin; quad[24] = 1;
-            quad[25] = fx;  quad[26] = fy;  quad[27] = fz + 1; quad[28] = uMin; quad[29] = 0;
+        case 1: // -X (lewo)
+            push(fx, fy, fz + 1, uMin, 0);
+            push(fx, fy, fz, uMax, 0);
+            push(fx, fy + 1, fz, uMax, 1);
+            push(fx, fy + 1, fz, uMax, 1);
+            push(fx, fy + 1, fz + 1, uMin, 1);
+            push(fx, fy, fz + 1, uMin, 0);
             break;
-        case 2:
-            quad[0] = fx;   quad[1] = fy + 1; quad[2] = fz;   quad[3] = uMin; quad[4] = 0;
-            quad[5] = fx + 1; quad[6] = fy + 1; quad[7] = fz;   quad[8] = uMax; quad[9] = 0;
-            quad[10] = fx + 1; quad[11] = fy + 1; quad[12] = fz + 1; quad[13] = uMax; quad[14] = 1;
-            quad[15] = fx + 1; quad[16] = fy + 1; quad[17] = fz + 1; quad[18] = uMax; quad[19] = 1;
-            quad[20] = fx;  quad[21] = fy + 1; quad[22] = fz + 1; quad[23] = uMin; quad[24] = 1;
-            quad[25] = fx;  quad[26] = fy + 1; quad[27] = fz;  quad[28] = uMin; quad[29] = 0;
+        case 2: // +Y (gora)
+            push(fx, fy + 1, fz, uMin, 0);
+            push(fx + 1, fy + 1, fz, uMax, 0);
+            push(fx + 1, fy + 1, fz + 1, uMax, 1);
+            push(fx + 1, fy + 1, fz + 1, uMax, 1);
+            push(fx, fy + 1, fz + 1, uMin, 1);
+            push(fx, fy + 1, fz, uMin, 0);
             break;
-        case 3:
-            quad[0] = fx;   quad[1] = fy;   quad[2] = fz + 1; quad[3] = uMin; quad[4] = 0;
-            quad[5] = fx + 1; quad[6] = fy;   quad[7] = fz + 1; quad[8] = uMax; quad[9] = 0;
-            quad[10] = fx + 1; quad[11] = fy;  quad[12] = fz;  quad[13] = uMax; quad[14] = 1;
-            quad[15] = fx + 1; quad[16] = fy;  quad[17] = fz;  quad[18] = uMax; quad[19] = 1;
-            quad[20] = fx;  quad[21] = fy;  quad[22] = fz;  quad[23] = uMin; quad[24] = 1;
-            quad[25] = fx;  quad[26] = fy;  quad[27] = fz + 1; quad[28] = uMin; quad[29] = 0;
+        case 3: // -Y (dol)
+            push(fx, fy, fz + 1, uMin, 0);
+            push(fx + 1, fy, fz + 1, uMax, 0);
+            push(fx + 1, fy, fz, uMax, 1);
+            push(fx + 1, fy, fz, uMax, 1);
+            push(fx, fy, fz, uMin, 1);
+            push(fx, fy, fz + 1, uMin, 0);
             break;
-        case 4:
-            quad[0] = fx;   quad[1] = fy;   quad[2] = fz + 1; quad[3] = uMin; quad[4] = 0;
-            quad[5] = fx + 1; quad[6] = fy;   quad[7] = fz + 1; quad[8] = uMax; quad[9] = 0;
-            quad[10] = fx + 1; quad[11] = fy + 1; quad[12] = fz + 1; quad[13] = uMax; quad[14] = 1;
-            quad[15] = fx + 1; quad[16] = fy + 1; quad[17] = fz + 1; quad[18] = uMax; quad[19] = 1;
-            quad[20] = fx;  quad[21] = fy + 1; quad[22] = fz + 1; quad[23] = uMin; quad[24] = 1;
-            quad[25] = fx;  quad[26] = fy;  quad[27] = fz + 1; quad[28] = uMin; quad[29] = 0;
+        case 4: // +Z (przod)
+            push(fx, fy, fz + 1, uMin, 0);
+            push(fx + 1, fy, fz + 1, uMax, 0);
+            push(fx + 1, fy + 1, fz + 1, uMax, 1);
+            push(fx + 1, fy + 1, fz + 1, uMax, 1);
+            push(fx, fy + 1, fz + 1, uMin, 1);
+            push(fx, fy, fz + 1, uMin, 0);
             break;
-        case 5:
-            quad[0] = fx + 1; quad[1] = fy;   quad[2] = fz;   quad[3] = uMin; quad[4] = 0;
-            quad[5] = fx;   quad[6] = fy;   quad[7] = fz;   quad[8] = uMax; quad[9] = 0;
-            quad[10] = fx;  quad[11] = fy + 1; quad[12] = fz;  quad[13] = uMax; quad[14] = 1;
-            quad[15] = fx;  quad[16] = fy + 1; quad[17] = fz;  quad[18] = uMax; quad[19] = 1;
-            quad[20] = fx + 1; quad[21] = fy + 1; quad[22] = fz;  quad[23] = uMin; quad[24] = 1;
-            quad[25] = fx + 1; quad[26] = fy;  quad[27] = fz;  quad[28] = uMin; quad[29] = 0;
+        case 5: // -Z (tyl)
+            push(fx + 1, fy, fz, uMin, 0);
+            push(fx, fy, fz, uMax, 0);
+            push(fx, fy + 1, fz, uMax, 1);
+            push(fx, fy + 1, fz, uMax, 1);
+            push(fx + 1, fy + 1, fz, uMin, 1);
+            push(fx + 1, fy, fz, uMin, 0);
             break;
         }
-        verts.insert(verts.end(), std::begin(quad), std::end(quad));
-     };
+        };
 
+    // Petla po blokach (bez zmian)
     for (int x = 0; x < SIZE_X; x++) {
         for (int y = 0; y < SIZE_Y; y++) {
             for (int z = 0; z < SIZE_Z; z++) {
@@ -141,18 +162,27 @@ void Chunk::buildMesh() {
         }
     }
 
+    // Upload na GPU - zmienil sie STRIDE (8 floatow zamiast 5)
     glBindVertexArray(m_VAO);
     glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
     glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    constexpr GLsizei STRIDE = 8 * sizeof(float);
+
+    // Atrybut 0: pozycja (3 floaty, offset 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    // Atrybut 1: UV (2 floaty, offset 12)
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, STRIDE, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    // Atrybut 2: normal (3 floaty, offset 20)
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)(5 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
-    m_vertexCount = (GLsizei)(verts.size() / 5);
+    m_vertexCount = (GLsizei)(verts.size() / 8);
 
-    std::cout << "Chunk (" << m_pos.x << "," << m_pos.y << "," << m_pos.z << ") mesh: " << m_vertexCount << "  vertexow\n";
+    std::cout << "Chunk (" << m_pos.x << "," << m_pos.y << "," << m_pos.z
+        << ") mesh: " << m_vertexCount << " vertexow\n";
 }
 
 void Chunk::draw() const {
