@@ -90,7 +90,6 @@ int main() {
 
     World world(1337);
     Skybox skybox;
-    world.generateInitial(5);
     g_world = &world;
 
     camera.position = glm::vec3(0.0f, 30.0f, 0.0f);
@@ -101,10 +100,26 @@ int main() {
 
     float lastFrame = 0.0f;
 
+    float fpsTimer = 0.0f;
+    int fpsFrames = 0;
+
     while (!glfwWindowShouldClose(window)) {
+
+
         float t = (float)glfwGetTime();
         float dt = t - lastFrame;
         lastFrame = t;
+
+        fpsFrames++;
+        fpsTimer += dt;
+        if (fpsTimer >= 1.0f) {
+            char title[128];
+            snprintf(title, sizeof(title), "CubeCraft - %d FPS - Chunks: %zu", fpsFrames, (size_t)0);
+            glfwSetWindowTitle(window, title);
+            fpsFrames = 0;
+            fpsTimer = 0.0f;
+        }
+
 
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
@@ -133,6 +148,8 @@ int main() {
         shader.setVec3("uFogColor", glm::vec3(0.75f, 0.85f, 0.95f));
         shader.setFloat("uFogStart", 60.0f);
         shader.setFloat("uFogEnd", 110.0f);
+
+        world.update(camera.position, 6);
 
         world.draw(shader);
 

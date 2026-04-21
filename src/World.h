@@ -11,6 +11,7 @@ struct IVec2Hash {
         return std::hash<int>()(v.x) ^ (std::hash<int>()(v.y) << 1);
     }
 };
+
 struct RaycastHit {
     bool hit = false;
     glm::ivec3 blockPos;
@@ -22,7 +23,8 @@ class World {
 public:
     World(int seed = 1337);
 
-    void generateInitial(int radius);
+    void update(const glm::vec3& cameraPos, int renderDistance);
+
     void draw(class Shader& shader) const;
 
     Chunk* getChunk(int cx, int cz);
@@ -35,6 +37,9 @@ private:
     std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>, IVec2Hash> m_chunks;
     FastNoiseLite m_noise;
     int m_seed;
+
+    static constexpr int MAX_CHUNKS_LOADED_PER_FRAME = 2;
+    static constexpr int MAX_CHUNKS_UNLOADED_PER_FRAME = 4;
 
     void generateChunkTerrain(Chunk& chunk);
     void chunkCoordsFromWorld(int wx, int wz, int& cx, int& cz, int& lx, int& lz);

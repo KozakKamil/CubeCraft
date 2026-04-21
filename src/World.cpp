@@ -114,18 +114,64 @@ void World::generateChunkTerrain(Chunk& chunk) {
     }
 }
 
-void World::generateInitial(int radius) {
-    for (int cx = -radius; cx <= radius; cx++) {
-        for (int cz = -radius; cz <= radius; cz++) {
-            auto chunk = std::make_unique<Chunk>(glm::ivec3(cx, 0, cz));
-            generateChunkTerrain(*chunk);
-            m_chunks[{cx, cz}] = std::move(chunk);
+void World::update(const glm::vec3& cameraPos, int renderDistance) {
+    
+    int camCx, camCz, lx, lz;
+    chunkCoordsFromWorld((int)std::floor(cameraPos.x), (int)std::floor(cameraPos.z),
+        camCx, camCz, lx, lz);
+
+    
+    int loadedThisFrame = 0;
+    int bestDist = INT_MAX;
+    glm::ivec2 bestPos;
+    bool foundMissing = false;
+
+    
+    for (int attempt = 0; attempt < MAX_CHUNKS_LOADED_PER_FRAME; attempt++) {
+        bestDist = INT_MAX;
+        foundMissing = false;
+
+        for (int dz = -renderDistance; dz <= renderDistance; dz++) {
+            for (int dx = -renderDistance; dx <= renderDistance; dx++) {
+                int cx = camCx + dx;
+                int cz = camCz + dz;
+                int dist = dx * dx + dz * dz;
+                if (dist > renderDistance * renderDistance) continue;
+
+                if (m_chunks.find({ cx, cz }) == m_chunks.end() && dist < bestDist) {
+                    bestDist = dist;
+                    bestPos = { cx, cz };
+                    foundMissing = true;
+                }
+            }
+        }
+
+        if (!foundMissing) break;
+
+        
+        auto chunk = std::make_unique<Chunk>(glm::ivec3(bestPos.x, 0, bestPos.y));
+        generateChunkTerrain(*chunk);
+        chunk->buildMesh();
+        m_chunks[bestPos] = std::move(chunk);
+        loadedThisFrame++;
+    }
+
+   
+    int unloadedThisFrame = 0;
+    std::vector<glm::ivec2> toRemove;
+    for (auto& [pos, chunk] : m_chunks) {
+        int dx = pos.x - camCx;
+        int dz = pos.y - camCz;
+        int dist = dx * dx + dz * dz;
+        if (dist > (renderDistance + 1) * (renderDistance + 1)) {
+            toRemove.push_back(pos);
+            if ((int)toRemove.size() >= MAX_CHUNKS_UNLOADED_PER_FRAME) break;
         }
     }
-    for (auto& [pos, chunk] : m_chunks) {
-        chunk->buildMesh();
+    for (auto& p : toRemove) {
+        m_chunks.erase(p);
+        unloadedThisFrame++;
     }
-    std::cout << "Wygenerowano " << m_chunks.size() << " chunkow\n";
 }
 
 void World::draw(Shader& shader) const {
