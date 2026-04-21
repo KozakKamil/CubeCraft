@@ -5,11 +5,9 @@
 #include "Texture.h"
 #include "Shader.h"
 #include "Camera.h"
-#include "Chunk.h"
+#include "World.h"
 
 #include <iostream>
-#include <vector>
-#include <memory>
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
@@ -35,7 +33,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT,
-        "CubeCraft - Chunks", nullptr, nullptr);
+        "CubeCraft - Perlin World", nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
 
     glfwMakeContextCurrent(window);
@@ -45,26 +43,18 @@ int main() {
 
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     std::cout << "OpenGL: " << glGetString(GL_VERSION) << "\n";
-    std::cout << "GPU: " << glGetString(GL_RENDERER) << "\n";
 
     glEnable(GL_DEPTH_TEST);
-    //glEnable(GL_CULL_FACE);  
-    //glCullFace(GL_BACK);
-    //glFrontFace(GL_CW);     
 
     Shader shader("shaders/basic.vert", "shaders/basic.frag");
     Texture grassAtlas;
 
-    
-    std::vector<std::unique_ptr<Chunk>> chunks;
-    for (int cx = -1; cx <= 1; cx++) {
-        for (int cz = -1; cz <= 1; cz++) {
-            auto c = std::make_unique<Chunk>(glm::ivec3(cx, 0, cz));
-            c->generateTerrain();
-            c->buildMesh();
-            chunks.push_back(std::move(c));
-        }
-    }
+    World world(1337);
+    world.generateInitial(5);  
+
+    camera.position = glm::vec3(0.0f, 30.0f, 0.0f);
+    camera.pitch = -30.0f;
+    camera.processMouse(0, 0);
 
     shader.use();
     shader.setInt("uTexture", 0);
@@ -93,12 +83,7 @@ int main() {
         shader.setMat4("uView", view);
         shader.setMat4("uProjection", proj);
 
-        
-        for (const auto& c : chunks) {
-            glm::mat4 model = glm::translate(glm::mat4(1.0f), c->worldPos());
-            shader.setMat4("uModel", model);
-            c->draw();
-        }
+        world.draw(shader);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

@@ -16,6 +16,7 @@ add_executable(CubeCraft
     src/Shader.cpp
     src/Camera.cpp
     src/Chunk.cpp
+    src/World.cpp
 )
 
 target_link_libraries(CubeCraft PRIVATE
