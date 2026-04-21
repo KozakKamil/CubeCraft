@@ -6,6 +6,7 @@
 #include "Shader.h"
 #include "Camera.h"
 #include "World.h"
+#include "Skybox.h"
 
 #include <iostream>
 
@@ -88,6 +89,7 @@ int main() {
     Texture grassAtlas;
 
     World world(1337);
+    Skybox skybox;
     world.generateInitial(5);
     g_world = &world;
 
@@ -95,7 +97,6 @@ int main() {
     camera.pitch = -30.0f;
     camera.processMouse(0, 0);
 
-    shader.use();
     shader.setInt("uTexture", 0);
 
     float lastFrame = 0.0f;
@@ -109,22 +110,29 @@ int main() {
             glfwSetWindowShouldClose(window, true);
         camera.processKeyboard(window, dt);
 
-        glClearColor(0.5f, 0.7f, 0.9f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        shader.use();
-        grassAtlas.bind(0);
+
 
         glm::mat4 view = camera.viewMatrix();
         glm::mat4 proj = glm::perspective(glm::radians(70.0f),
             (float)WINDOW_WIDTH / WINDOW_HEIGHT, 0.1f, 1000.0f);
 
+        glm::vec3 lightDir = glm::normalize(glm::vec3(-0.3f, -1.0f, -0.4f));
+        glm::vec3 sunDir = -lightDir;
+        skybox.draw(view, proj, sunDir);
+
+        shader.use();
+        grassAtlas.bind(0);
         shader.setMat4("uView", view);
         shader.setMat4("uProjection", proj);
-
-        glm::vec3 lightDir = glm::normalize(glm::vec3(-0.3f, -1.0f, -0.4f));
         shader.setVec3("uLightDir", lightDir);
         shader.setFloat("uAmbient", 0.35f);
+
+        shader.setVec3("uCameraPos", camera.position);
+        shader.setVec3("uFogColor", glm::vec3(0.75f, 0.85f, 0.95f));
+        shader.setFloat("uFogStart", 60.0f);
+        shader.setFloat("uFogEnd", 110.0f);
 
         world.draw(shader);
 

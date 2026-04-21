@@ -17,6 +17,7 @@ add_executable(CubeCraft
     src/Camera.cpp
     src/Chunk.cpp
     src/World.cpp
+    src/Skybox.cpp
 )
 
 target_link_libraries(CubeCraft PRIVATE
