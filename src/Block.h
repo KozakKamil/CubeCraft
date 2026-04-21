@@ -6,8 +6,15 @@ enum class BlockType : uint8_t {
 	Grass,
 	Dirt,
 	Stone,
+	Sand,
+	Snow,
+	Water
 };
 
 inline bool isAir(BlockType b) {
 	return b == BlockType::Air;
+}
+
+inline bool isTransparent(BlockType b) {
+	return b == BlockType::Air || b == BlockType::Water;
 }

@@ -1,26 +1,32 @@
 #include "Chunk.h"
 #include <iostream>
 
-static constexpr float U0 = 0.0f, U1 = 1.0f / 4.0f;
-static constexpr float U2 = 1.0f / 4.0f, U3 = 2.0f / 4.0f;
-static constexpr float U4 = 2.0f / 4.0f, U5 = 3.0f / 4.0f;
-static constexpr float U6 = 3.0f / 4.0f, U7 = 1.0f;
+static constexpr float TILE_U = 1.0f / 7.0f;
 
 static void getUVRange(BlockType type, int face, float& uMin, float& uMax) {
-	if (type == BlockType::Grass) {
-		if (face == 2) { uMin = U0; uMax = U1; }
-		else if (face == 3) { uMin = U4; uMax = U5; }
-		else { uMin = U2; uMax = U3; }
-	}
-	else if (type == BlockType::Dirt) {
-		uMin = U4; uMax = U5;
-	}
-	else if (type == BlockType::Stone) {
-		uMin = U6; uMax = U7;
-	}
-	else {
-		uMin = 0; uMax = 0;
-	}
+    int tile = 0;
+    if (type == BlockType::Grass) {
+        if (face == 2)      tile = 0;
+        else if (face == 3) tile = 2; 
+        else                tile = 1;
+    }
+    else if (type == BlockType::Dirt)  tile = 2;
+    else if (type == BlockType::Stone) tile = 3;
+    else if (type == BlockType::Sand)  tile = 4;
+    else if (type == BlockType::Snow)  tile = 5;
+    else if (type == BlockType::Water) tile = 6;
+    else { uMin = 0; uMax = 0; return; }
+
+    uMin = tile * TILE_U;
+    uMax = (tile + 1) * TILE_U;
+}
+
+
+static bool shouldDrawFace(BlockType current, BlockType neighbor) {
+    if (isAir(neighbor)) return true;
+    if (current == BlockType::Water) return false;       
+    if (neighbor == BlockType::Water) return true;       
+    return false;
 }
 
 Chunk::Chunk(glm::ivec3 pos) : m_pos(pos) {
@@ -152,12 +158,12 @@ void Chunk::buildMesh() {
                 BlockType cur = m_bloks[x][y][z];
                 if (isAir(cur)) continue;
 
-                if (isAir(getBlock(x + 1, y, z))) addFace(x, y, z, 0, cur);
-                if (isAir(getBlock(x - 1, y, z))) addFace(x, y, z, 1, cur);
-                if (isAir(getBlock(x, y + 1, z))) addFace(x, y, z, 2, cur);
-                if (isAir(getBlock(x, y - 1, z))) addFace(x, y, z, 3, cur);
-                if (isAir(getBlock(x, y, z + 1))) addFace(x, y, z, 4, cur);
-                if (isAir(getBlock(x, y, z - 1))) addFace(x, y, z, 5, cur);
+                if (shouldDrawFace(cur, getBlock(x + 1, y, z))) addFace(x, y, z, 0, cur);
+                if (shouldDrawFace(cur, getBlock(x - 1, y, z))) addFace(x, y, z, 1, cur);
+                if (shouldDrawFace(cur, getBlock(x, y + 1, z))) addFace(x, y, z, 2, cur);
+                if (shouldDrawFace(cur, getBlock(x, y - 1, z))) addFace(x, y, z, 3, cur);
+                if (shouldDrawFace(cur, getBlock(x, y, z + 1))) addFace(x, y, z, 4, cur);
+                if (shouldDrawFace(cur, getBlock(x, y, z - 1))) addFace(x, y, z, 5, cur);
             }
         }
     }

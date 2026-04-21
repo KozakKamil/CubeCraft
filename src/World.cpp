@@ -77,6 +77,11 @@ RaycastHit World::raycast(const glm::vec3& origin, const glm::vec3& dir, float m
 }
 
 void World::generateChunkTerrain(Chunk& chunk) {
+    constexpr int SEA_LEVEL = 8;  
+    constexpr int BEACH_MAX = 16;  
+    constexpr int MOUNTAIN_MIN = 18;
+    constexpr int SNOW_MIN = 24;
+
     glm::ivec3 cp = chunk.chunkPos();
     int worldOffsetX = cp.x * Chunk::SIZE_X;
     int worldOffsetZ = cp.z * Chunk::SIZE_Z;
@@ -87,15 +92,23 @@ void World::generateChunkTerrain(Chunk& chunk) {
             float wz = (float)(worldOffsetZ + z);
             float n = m_noise.GetNoise(wx, wz);
 
-            int height = 16 + (int)(n * 10.0f);
+            int height = 16 + (int)(n * 12.0f);
             if (height < 1) height = 1;
             if (height >= Chunk::SIZE_Y) height = Chunk::SIZE_Y - 1;
 
+            BlockType topBlock;
+            BlockType subBlock;
+            if (height >= SNOW_MIN) { topBlock = BlockType::Snow;  subBlock = BlockType::Stone; }
+            else if (height >= MOUNTAIN_MIN) { topBlock = BlockType::Stone; subBlock = BlockType::Stone; }
+            else if (height <= BEACH_MAX) { topBlock = BlockType::Sand;  subBlock = BlockType::Sand; }
+            else { topBlock = BlockType::Grass; subBlock = BlockType::Dirt; }
+
             for (int y = 0; y < Chunk::SIZE_Y; y++) {
-                if (y < height - 3)       chunk.setBlock(x, y, z, BlockType::Stone);
-                else if (y < height)      chunk.setBlock(x, y, z, BlockType::Dirt);
-                else if (y == height)     chunk.setBlock(x, y, z, BlockType::Grass);
-                else                      chunk.setBlock(x, y, z, BlockType::Air);
+                if (y < height - 3)      chunk.setBlock(x, y, z, BlockType::Stone);
+                else if (y < height)     chunk.setBlock(x, y, z, subBlock);
+                else if (y == height)    chunk.setBlock(x, y, z, topBlock);
+                else if (y <= SEA_LEVEL) chunk.setBlock(x, y, z, BlockType::Water);
+                else                     chunk.setBlock(x, y, z, BlockType::Air);
             }
         }
     }
