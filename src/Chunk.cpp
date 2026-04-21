@@ -1,9 +1,10 @@
 #include "Chunk.h"
 #include <iostream>
 
-static constexpr float U0 = 0.0f, U1 = 1.0f / 3.0f;
-static constexpr float U2 = 1.0f / 3.0f, U3 = 2.0f / 3.0f;
-static constexpr float U4 = 2.0f / 3.0f, U5 = 1.0f;
+static constexpr float U0 = 0.0f, U1 = 1.0f / 4.0f;
+static constexpr float U2 = 1.0f / 4.0f, U3 = 2.0f / 4.0f;
+static constexpr float U4 = 2.0f / 4.0f, U5 = 3.0f / 4.0f;
+static constexpr float U6 = 3.0f / 4.0f, U7 = 1.0f;
 
 static void getUVRange(BlockType type, int face, float& uMin, float& uMax) {
 	if (type == BlockType::Grass) {
@@ -15,7 +16,7 @@ static void getUVRange(BlockType type, int face, float& uMin, float& uMax) {
 		uMin = U4; uMax = U5;
 	}
 	else if (type == BlockType::Stone) {
-		uMin = U4; uMax = U5;
+		uMin = U6; uMax = U7;
 	}
 	else {
 		uMin = 0; uMax = 0;
