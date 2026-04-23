@@ -35,7 +35,7 @@ Texture::Texture(const std::string& path) {
 }
 Texture::Texture() {
     constexpr int TILE = 16;
-    constexpr int TILES = 7;
+    constexpr int TILES = 9;
     constexpr int W = TILE * TILES;  
     constexpr int H = TILE;          
     std::vector<uint8_t> pixels(W * H * 3);
@@ -52,14 +52,16 @@ Texture::Texture() {
     auto sandNoise = [](int x, int y) { return ((x * 53 + y * 91) % 9) - 4; };
     auto snowNoise = [](int x, int y) { return ((x * 211 + y * 47) % 15) - 7; };
     auto waterNoise = [](int x, int y) { return ((x * 113 + y * 67) % 19) - 9; };
+	auto woodNoise = [](int x, int y) { return ((x * 97 + y * 41) % 11) - 5; };
+	auto leavesNoise = [](int x, int y) { return ((x * 151 + y * 59) % 17) - 8; };
 
     for (int y = 0; y < H; y++) {
         for (int x = 0; x < TILE; x++) {
             int n = noise(x, y);
 
-            setPx(x, y, 90 + n, 150 + n, 60 + n);
+            setPx(x + TILE*0, y, 90 + n, 150 + n, 60 + n);
 
-            int sideX = x + TILE;
+            int sideX = x + TILE*1;
             if (y >= H - 3) setPx(sideX, y, 90 + n, 150 + n, 60 + n);
             else            setPx(sideX, y, 134 + n, 96 + n, 67 + n);
 
@@ -76,6 +78,12 @@ Texture::Texture() {
 
             int wn = waterNoise(x, y);
             setPx(x + TILE * 6, y, 40 + wn, 90 + wn, 170 + wn);
+
+			int wdn = woodNoise(x, y);
+			setPx(x + TILE * 7, y, 120 + wdn, 80 + wdn, 50 + wdn);
+
+			int ln = leavesNoise(x, y);
+			setPx(x + TILE * 8, y, 60 + ln, 120 + ln, 55 + ln);
         }
     }
 

@@ -1,7 +1,7 @@
 #include "Chunk.h"
 #include <iostream>
 
-static constexpr float TILE_U = 1.0f / 7.0f;
+static constexpr float TILE_U = 1.0f / 9.0f;
 
 static void getUVRange(BlockType type, int face, float& uMin, float& uMax) {
     int tile = 0;
@@ -15,6 +15,8 @@ static void getUVRange(BlockType type, int face, float& uMin, float& uMax) {
     else if (type == BlockType::Sand)  tile = 4;
     else if (type == BlockType::Snow)  tile = 5;
     else if (type == BlockType::Water) tile = 6;
+    else if (type == BlockType::Wood)  tile = 7;
+	else if (type == BlockType::Leaves) tile = 8;
     else { uMin = 0; uMax = 0; return; }
 
     uMin = tile * TILE_U;
@@ -175,13 +177,10 @@ void Chunk::buildMesh() {
 
     constexpr GLsizei STRIDE = 8 * sizeof(float);
 
-    // Atrybut 0: pozycja (3 floaty, offset 0)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)0);
     glEnableVertexAttribArray(0);
-    // Atrybut 1: UV (2 floaty, offset 12)
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, STRIDE, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    // Atrybut 2: normal (3 floaty, offset 20)
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)(5 * sizeof(float)));
     glEnableVertexAttribArray(2);
 

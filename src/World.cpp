@@ -3,6 +3,19 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <cmath>
+#include <cstdint>
+
+static uint32_t hash21(int x, int z, uint32_t seed) {
+    uint32_t h = seed;
+    h ^= (uint32_t)x * 374761393u;
+	h ^= (uint32_t)z * 668265263u;
+	h = (h ^ (h >> 13)) * 1274126177u;
+	return h ^ (h >> 16);
+}
+
+static float rand01(int x, int z, uint32_t seed) {
+    return (hash21(x, z, seed) & 0xFFFFFF) / float(0x1000000);
+}
 
 World::World(int seed) : m_seed(seed) {
     // 1. CONTINENTAL - wielkie kontynenty/oceany (niska freq)
@@ -131,6 +144,43 @@ void World::generateChunkTerrain(Chunk& chunk) {
                 else if (y == height) chunk.setBlock(x, y, z, topBlock);
                 else if (y <= SEA_LEVEL) chunk.setBlock(x, y, z, BlockType::Water);
                 else chunk.setBlock(x, y, z, BlockType::Air);
+            }
+
+			int worldX = worldOffsetX + x;
+			int worldZ = worldOffsetZ + z;
+
+            if (topBlock == BlockType::Grass && height > SEA_LEVEL + 1) {
+                float r = rand01(worldX, worldZ, (uint32_t)m_seed);
+
+                if (r < 0.035f) {
+                    int trunkH = 4 + (hash21(worldX, worldZ, (uint32_t)m_seed + 99) % 3);
+					int topY = height;
+
+					if (topY + trunkH + 3 < Chunk::SIZE_Y) {
+                        for(int i = 1; i <= trunkH; i++){
+							chunk.setBlock(x, topY + i, z, BlockType::Wood);
+                        }
+
+						int crownY = topY + trunkH;
+                        for(int dy = -2; dy <=2; dy++){
+                            for(int dx = -2; dx <=2; dx++){
+                                for (int dz = -2; dz <= 2; dz++) {
+                                    int ax = x + dx;
+									int ay = crownY + dy;
+                                    int az = z + dz;
+
+									int dist2 = dx * dx + dz * dz + dy * dy;
+
+                                    if (dist2 > 6) continue;
+
+									if (dx == 0 && dz == 0 && dy <= 0) continue;
+
+									chunk.setBlock(ax, ay, az, BlockType::Leaves);
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
