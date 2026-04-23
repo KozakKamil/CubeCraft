@@ -5,13 +5,28 @@
 #include <cmath>
 
 World::World(int seed) : m_seed(seed) {
-    m_noise.SetSeed(seed);
-    m_noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-    m_noise.SetFrequency(0.02f);
-    m_noise.SetFractalType(FastNoiseLite::FractalType_FBm);
-    m_noise.SetFractalOctaves(4);
-    m_noise.SetFractalLacunarity(2.0f);
-    m_noise.SetFractalGain(0.5f);
+    // 1. CONTINENTAL - wielkie kontynenty/oceany (niska freq)
+    m_noiseContinental.SetSeed(seed);
+    m_noiseContinental.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    m_noiseContinental.SetFrequency(0.005f);
+    m_noiseContinental.SetFractalType(FastNoiseLite::FractalType_FBm);
+    m_noiseContinental.SetFractalOctaves(3);
+
+    // 2. HILLINESS - selektor plasko/gorzysto (bardzo niska freq - wielkie regiony)
+    m_noiseHilliness.SetSeed(seed + 1);
+    m_noiseHilliness.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    m_noiseHilliness.SetFrequency(0.003f);
+    m_noiseHilliness.SetFractalType(FastNoiseLite::FractalType_FBm);
+    m_noiseHilliness.SetFractalOctaves(2);
+
+    // 3. DETAIL - ostre szczegoly gor (wysoka freq)
+    m_noiseDetail.SetSeed(seed + 2);
+    m_noiseDetail.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    m_noiseDetail.SetFrequency(0.025f);
+    m_noiseDetail.SetFractalType(FastNoiseLite::FractalType_FBm);
+    m_noiseDetail.SetFractalOctaves(5);
+    m_noiseDetail.SetFractalLacunarity(2.0f);
+    m_noiseDetail.SetFractalGain(0.55f);
 }
 
 Chunk* World::getChunk(int cx, int cz) {
@@ -77,38 +92,45 @@ RaycastHit World::raycast(const glm::vec3& origin, const glm::vec3& dir, float m
 }
 
 void World::generateChunkTerrain(Chunk& chunk) {
-    constexpr int SEA_LEVEL = 8;  
-    constexpr int BEACH_MAX = 16;  
-    constexpr int MOUNTAIN_MIN = 18;
-    constexpr int SNOW_MIN = 24;
+	const int SEA_LEVEL = 40;
+	const int BASE_HEIGHT = 48;
+    const int BEACH_MAX = 43;
+	const int MOUNTAIN_MIN = 70;
+	const int SNOW_MIN = 90;
 
-    glm::ivec3 cp = chunk.chunkPos();
-    int worldOffsetX = cp.x * Chunk::SIZE_X;
-    int worldOffsetZ = cp.z * Chunk::SIZE_Z;
+	glm::ivec3 cp = chunk.chunkPos();
+	int worldOffsetX = cp.x * Chunk::SIZE_X;
+	int worldOffsetZ = cp.z * Chunk::SIZE_Z;
 
-    for (int x = 0; x < Chunk::SIZE_X; x++) {
+    for(int x =0; x<Chunk::SIZE_X; x++){
         for (int z = 0; z < Chunk::SIZE_Z; z++) {
             float wx = (float)(worldOffsetX + x);
             float wz = (float)(worldOffsetZ + z);
-            float n = m_noise.GetNoise(wx, wz);
 
-            int height = 16 + (int)(n * 12.0f);
+            float continental = m_noiseContinental.GetNoise(wx, wz);
+            float hillinesRaw = m_noiseHilliness.GetNoise(wx, wz);
+            float detail = m_noiseDetail.GetNoise(wx, wz);
+
+            float hilliness = (hillinesRaw + 1.0f) * 0.5f;
+            hilliness = hilliness * hilliness * hilliness;
+
+            int height = BASE_HEIGHT + (int)(continental * 18.0f) + (int)(hilliness * detail * 40.0f);
+
             if (height < 1) height = 1;
             if (height >= Chunk::SIZE_Y) height = Chunk::SIZE_Y - 1;
 
-            BlockType topBlock;
-            BlockType subBlock;
-            if (height >= SNOW_MIN) { topBlock = BlockType::Snow;  subBlock = BlockType::Stone; }
+            BlockType topBlock, subBlock;
+            if (height >= SNOW_MIN) { topBlock = BlockType::Snow; subBlock = BlockType::Stone; }
             else if (height >= MOUNTAIN_MIN) { topBlock = BlockType::Stone; subBlock = BlockType::Stone; }
-            else if (height <= BEACH_MAX) { topBlock = BlockType::Sand;  subBlock = BlockType::Sand; }
+            else if (height <= BEACH_MAX) { topBlock = BlockType::Sand; subBlock = BlockType::Sand; }
             else { topBlock = BlockType::Grass; subBlock = BlockType::Dirt; }
 
             for (int y = 0; y < Chunk::SIZE_Y; y++) {
-                if (y < height - 3)      chunk.setBlock(x, y, z, BlockType::Stone);
-                else if (y < height)     chunk.setBlock(x, y, z, subBlock);
-                else if (y == height)    chunk.setBlock(x, y, z, topBlock);
+                if (y < height - 4) chunk.setBlock(x, y, z, BlockType::Stone);
+                else if (y < height) chunk.setBlock(x, y, z, subBlock);
+                else if (y == height) chunk.setBlock(x, y, z, topBlock);
                 else if (y <= SEA_LEVEL) chunk.setBlock(x, y, z, BlockType::Water);
-                else                     chunk.setBlock(x, y, z, BlockType::Air);
+                else chunk.setBlock(x, y, z, BlockType::Air);
             }
         }
     }

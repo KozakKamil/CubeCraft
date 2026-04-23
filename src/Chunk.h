@@ -7,7 +7,7 @@
 class Chunk {
 public:
 	static constexpr int SIZE_X = 16;
-	static constexpr int SIZE_Y = 64;
+	static constexpr int SIZE_Y = 128;
 	static constexpr int SIZE_Z = 16;
 
 	Chunk(glm::ivec3 chunkPos);

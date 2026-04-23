@@ -21,7 +21,7 @@ struct RaycastHit {
 
 class World {
 public:
-    World(int seed = 1337);
+    World(int seed = 25978752);
 
     void update(const glm::vec3& cameraPos, int renderDistance);
 
@@ -35,7 +35,10 @@ public:
 
 private:
     std::unordered_map<glm::ivec2, std::unique_ptr<Chunk>, IVec2Hash> m_chunks;
-    FastNoiseLite m_noise;
+    FastNoiseLite m_noiseContinental;
+    FastNoiseLite m_noiseHilliness;
+    FastNoiseLite m_noiseDetail;
+
     int m_seed;
 
     static constexpr int MAX_CHUNKS_LOADED_PER_FRAME = 2;

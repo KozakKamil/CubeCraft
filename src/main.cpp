@@ -92,8 +92,8 @@ int main() {
     Skybox skybox;
     g_world = &world;
 
-    camera.position = glm::vec3(0.0f, 30.0f, 0.0f);
-    camera.pitch = -30.0f;
+    camera.position = glm::vec3(0.0f, 60.0f, 0.0f);
+    camera.pitch = -25.0f;
     camera.processMouse(0, 0);
 
     shader.setInt("uTexture", 0);
@@ -146,8 +146,8 @@ int main() {
 
         shader.setVec3("uCameraPos", camera.position);
         shader.setVec3("uFogColor", glm::vec3(0.75f, 0.85f, 0.95f));
-        shader.setFloat("uFogStart", 60.0f);
-        shader.setFloat("uFogEnd", 110.0f);
+        shader.setFloat("uFogStart", 80.0f);
+        shader.setFloat("uFogEnd", 160.0f);
 
         world.update(camera.position, 6);
 
