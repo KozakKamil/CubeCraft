@@ -67,6 +67,7 @@ int main() {
     if (!window) { glfwTerminate(); return -1; }
 
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(0);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
@@ -114,7 +115,8 @@ int main() {
         fpsTimer += dt;
         if (fpsTimer >= 1.0f) {
             char title[128];
-            snprintf(title, sizeof(title), "CubeCraft - %d FPS - Chunks: %zu", fpsFrames, (size_t)0);
+            snprintf(title, sizeof(title), "CubeCraft - %d FPS - Chunks: %zu",
+                fpsFrames, world.chunkCount());
             glfwSetWindowTitle(window, title);
             fpsFrames = 0;
             fpsTimer = 0.0f;

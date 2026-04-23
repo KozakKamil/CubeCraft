@@ -4,6 +4,8 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+class World;
+
 class Chunk {
 public:
 	static constexpr int SIZE_X = 16;
@@ -17,13 +19,13 @@ public:
 	Chunk& operator=(const Chunk&) = delete;
 
 	void generateTerrain();
-
 	void buildMesh();
-
 	void draw() const;
 
 	BlockType getBlock(int x, int y, int z) const;
 	void setBlock(int x, int y, int z, BlockType t);
+
+	void setWorld(World* w) { m_world = w; }
 
 	glm::ivec3 chunkPos() const { return m_pos; }
 	glm::vec3 worldPos() const {
@@ -37,4 +39,7 @@ private:
 	GLuint m_VAO = 0, m_VBO = 0;
 	GLsizei m_vertexCount = 0;
 	bool inBounds(int x, int y, int z) const;
+
+	BlockType getBlockForCulling(int x, int y, int z) const;
+	World* m_world = nullptr;
 };

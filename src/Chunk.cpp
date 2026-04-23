@@ -1,4 +1,5 @@
 #include "Chunk.h"
+#include "World.h"
 #include <iostream>
 
 static constexpr float TILE_U = 1.0f / 9.0f;
@@ -52,6 +53,21 @@ BlockType Chunk::getBlock(int x, int y, int z) const {
 
 void Chunk::setBlock(int x, int y, int z, BlockType t) {
 	if (inBounds(x, y, z)) m_bloks[x][y][z] = t;
+}
+
+BlockType Chunk::getBlockForCulling(int x, int y, int z) const {
+	if (y < 0 || y >= SIZE_Y) return BlockType::Air;
+
+    if(x >= 0 && x < SIZE_X && z >= 0 && z < SIZE_Z) {
+        return m_bloks[x][y][z];
+    }
+
+	if (!m_world) return BlockType::Air;
+
+	int wx = m_pos.x * SIZE_X + x;
+	int wz = m_pos.z * SIZE_Z + z;
+
+	return m_world->getBlockWorld(wx, y, wz);
 }
 
 void Chunk::generateTerrain() {
@@ -160,12 +176,12 @@ void Chunk::buildMesh() {
                 BlockType cur = m_bloks[x][y][z];
                 if (isAir(cur)) continue;
 
-                if (shouldDrawFace(cur, getBlock(x + 1, y, z))) addFace(x, y, z, 0, cur);
-                if (shouldDrawFace(cur, getBlock(x - 1, y, z))) addFace(x, y, z, 1, cur);
-                if (shouldDrawFace(cur, getBlock(x, y + 1, z))) addFace(x, y, z, 2, cur);
-                if (shouldDrawFace(cur, getBlock(x, y - 1, z))) addFace(x, y, z, 3, cur);
-                if (shouldDrawFace(cur, getBlock(x, y, z + 1))) addFace(x, y, z, 4, cur);
-                if (shouldDrawFace(cur, getBlock(x, y, z - 1))) addFace(x, y, z, 5, cur);
+                if (shouldDrawFace(cur, getBlockForCulling(x + 1, y, z))) addFace(x, y, z, 0, cur);
+                if (shouldDrawFace(cur, getBlockForCulling(x - 1, y, z))) addFace(x, y, z, 1, cur);
+                if (shouldDrawFace(cur, getBlockForCulling(x, y + 1, z))) addFace(x, y, z, 2, cur);
+                if (shouldDrawFace(cur, getBlockForCulling(x, y - 1, z))) addFace(x, y, z, 3, cur);
+                if (shouldDrawFace(cur, getBlockForCulling(x, y, z + 1))) addFace(x, y, z, 4, cur);
+                if (shouldDrawFace(cur, getBlockForCulling(x, y, z - 1))) addFace(x, y, z, 5, cur);
             }
         }
     }

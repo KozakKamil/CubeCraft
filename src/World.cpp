@@ -198,11 +198,17 @@ void World::update(const glm::vec3& cameraPos, int renderDistance) {
 
         
         auto chunk = std::make_unique<Chunk>(glm::ivec3(bestPos.x, 0, bestPos.y));
+		chunk->setWorld(this);
         generateChunkTerrain(*chunk);
         generateChunkTrees(*chunk);
         chunk->buildMesh();
         m_chunks[bestPos] = std::move(chunk);
         loadedThisFrame++;
+
+		if (Chunk* n = getChunk(bestPos.x - 1, bestPos.y)) n->buildMesh();
+        if (Chunk* n = getChunk(bestPos.x + 1, bestPos.y)) n->buildMesh();
+        if (Chunk* n = getChunk(bestPos.x, bestPos.y - 1)) n->buildMesh();
+        if (Chunk* n = getChunk(bestPos.x, bestPos.y + 1)) n->buildMesh();
     }
 
    
@@ -220,6 +226,11 @@ void World::update(const glm::vec3& cameraPos, int renderDistance) {
     for (auto& p : toRemove) {
         m_chunks.erase(p);
         unloadedThisFrame++;
+
+		if (Chunk* n = getChunk(p.x - 1, p.y)) n->buildMesh();
+        if (Chunk* n = getChunk(p.x + 1, p.y)) n->buildMesh();
+        if (Chunk* n = getChunk(p.x, p.y - 1)) n->buildMesh();
+        if (Chunk* n = getChunk(p.x, p.y + 1)) n->buildMesh();
     }
 }
 

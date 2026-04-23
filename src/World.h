@@ -22,7 +22,7 @@ struct RaycastHit {
 class World {
 public:
     World(int seed = 25978752);
-
+    size_t chunkCount() const { return m_chunks.size(); }
     void update(const glm::vec3& cameraPos, int renderDistance);
 
     void draw(class Shader& shader) const;
