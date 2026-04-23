@@ -3,6 +3,7 @@
 in vec2 vUV;
 in vec3 vNormal;
 in vec3 vWorldPos;
+in float vAO;
 
 out vec4 FragColor;
 
@@ -20,6 +21,9 @@ void main() {
     // Oswietlenie
     float diff = max(dot(normalize(vNormal), -uLightDir), 0.0);
     float lightIntensity = uAmbient + (1.0 - uAmbient) * diff;
+
+    float aoFactor = mix(0.7, 1.0, vAO);
+
     vec3 litColor = texColor.rgb * lightIntensity;
 
     // Mgla
