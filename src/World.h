@@ -45,5 +45,11 @@ private:
     static constexpr int MAX_CHUNKS_UNLOADED_PER_FRAME = 4;
 
     void generateChunkTerrain(Chunk& chunk);
+	void generateChunkTrees(Chunk& chunk);
+	int sampleHeight(int wx, int wz);
+	BlockType sampleTopBlock(int height);
+	bool shouldSpawnTree(int wx, int wz);
+    bool shouldSpawnTreeCandidate(int wx, int wz);
+	void placeTreeAt(Chunk& chunk, int wx, int wz, int baseY);
     void chunkCoordsFromWorld(int wx, int wz, int& cx, int& cz, int& lx, int& lz);
 };

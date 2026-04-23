@@ -104,86 +104,62 @@ RaycastHit World::raycast(const glm::vec3& origin, const glm::vec3& dir, float m
     return result;
 }
 
-void World::generateChunkTerrain(Chunk& chunk) {
-	const int SEA_LEVEL = 40;
-	const int BASE_HEIGHT = 48;
-    const int BEACH_MAX = 43;
-	const int MOUNTAIN_MIN = 70;
-	const int SNOW_MIN = 90;
+static constexpr int SEA_LEVEL = 40;
+static constexpr int BASE_HEIGHT = 48;
+static constexpr int BEACH_MAX = 43;
+static constexpr int MOUNTAIN_MIN = 70;
+static constexpr int SNOW_MIN = 90;
+static constexpr int TREE_RADIUS = 2;
+static constexpr int TREE_CROWN_H = 4;
 
-	glm::ivec3 cp = chunk.chunkPos();
-	int worldOffsetX = cp.x * Chunk::SIZE_X;
-	int worldOffsetZ = cp.z * Chunk::SIZE_Z;
+int World::sampleHeight(int wx, int wz) {
+    float fwx = (float)wx;
+    float fwz = (float)wz;
 
-    for(int x =0; x<Chunk::SIZE_X; x++){
-        for (int z = 0; z < Chunk::SIZE_Z; z++) {
-            float wx = (float)(worldOffsetX + x);
-            float wz = (float)(worldOffsetZ + z);
+    float continental = m_noiseContinental.GetNoise(fwx, fwz);
+	float hillinesRaw = m_noiseHilliness.GetNoise(fwx, fwz);
+    float detail = m_noiseDetail.GetNoise(fwx, fwz);
 
-            float continental = m_noiseContinental.GetNoise(wx, wz);
-            float hillinesRaw = m_noiseHilliness.GetNoise(wx, wz);
-            float detail = m_noiseDetail.GetNoise(wx, wz);
+    float hillness = (hillinesRaw + 1.0f) * 0.5f;
+    hillness = hillness * hillness * hillness;
 
-            float hilliness = (hillinesRaw + 1.0f) * 0.5f;
-            hilliness = hilliness * hilliness * hilliness;
+    int height = BASE_HEIGHT + (int)(continental * 10.0f) + (int)(hillness * detail * 40.0f);
+    if (height < 1) height = 1;
+    if (height >= Chunk::SIZE_Y) height = Chunk::SIZE_Y - 1;
+    return height;
+}
 
-            int height = BASE_HEIGHT + (int)(continental * 18.0f) + (int)(hilliness * detail * 40.0f);
+BlockType World::sampleTopBlock(int height) {
+    if (height >= SNOW_MIN) return BlockType::Snow;
+    if (height >= MOUNTAIN_MIN) return BlockType::Stone;
+    if (height <= BEACH_MAX) return BlockType::Sand;
+    return BlockType::Grass;
+}
 
-            if (height < 1) height = 1;
-            if (height >= Chunk::SIZE_Y) height = Chunk::SIZE_Y - 1;
+bool World::shouldSpawnTreeCandidate(int wx, int wz) {
+    int h = sampleHeight(wx, wz);
+    if (h <= SEA_LEVEL + 1) return false;
+    if (sampleTopBlock(h) != BlockType::Grass) return false;
+    return rand01(wx, wz, (uint32_t)m_seed) < 0.012f;
+}
 
-            BlockType topBlock, subBlock;
-            if (height >= SNOW_MIN) { topBlock = BlockType::Snow; subBlock = BlockType::Stone; }
-            else if (height >= MOUNTAIN_MIN) { topBlock = BlockType::Stone; subBlock = BlockType::Stone; }
-            else if (height <= BEACH_MAX) { topBlock = BlockType::Sand; subBlock = BlockType::Sand; }
-            else { topBlock = BlockType::Grass; subBlock = BlockType::Dirt; }
+bool World::shouldSpawnTree(int wx, int wz) {
+    int h = sampleHeight(wx, wz);
+    if (h <= SEA_LEVEL + 1) return false;
+    if (sampleTopBlock(h) != BlockType::Grass) return false;
 
-            for (int y = 0; y < Chunk::SIZE_Y; y++) {
-                if (y < height - 4) chunk.setBlock(x, y, z, BlockType::Stone);
-                else if (y < height) chunk.setBlock(x, y, z, subBlock);
-                else if (y == height) chunk.setBlock(x, y, z, topBlock);
-                else if (y <= SEA_LEVEL) chunk.setBlock(x, y, z, BlockType::Water);
-                else chunk.setBlock(x, y, z, BlockType::Air);
-            }
+    if (rand01(wx, wz, (uint32_t)m_seed) >= 0.012f) return false;
 
-			int worldX = worldOffsetX + x;
-			int worldZ = worldOffsetZ + z;
-
-            if (topBlock == BlockType::Grass && height > SEA_LEVEL + 1) {
-                float r = rand01(worldX, worldZ, (uint32_t)m_seed);
-
-                if (r < 0.035f) {
-                    int trunkH = 4 + (hash21(worldX, worldZ, (uint32_t)m_seed + 99) % 3);
-					int topY = height;
-
-					if (topY + trunkH + 3 < Chunk::SIZE_Y) {
-                        for(int i = 1; i <= trunkH; i++){
-							chunk.setBlock(x, topY + i, z, BlockType::Wood);
-                        }
-
-						int crownY = topY + trunkH;
-                        for(int dy = -2; dy <=2; dy++){
-                            for(int dx = -2; dx <=2; dx++){
-                                for (int dz = -2; dz <= 2; dz++) {
-                                    int ax = x + dx;
-									int ay = crownY + dy;
-                                    int az = z + dz;
-
-									int dist2 = dx * dx + dz * dz + dy * dy;
-
-                                    if (dist2 > 6) continue;
-
-									if (dx == 0 && dz == 0 && dy <= 0) continue;
-
-									chunk.setBlock(ax, ay, az, BlockType::Leaves);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+    uint32_t myH = hash21(wx, wz, (uint32_t)m_seed + 1337u);
+    for (int dz = -2; dz <= 2; dz++) {
+        for (int dx = -2; dx <= 2;dx++) {
+            if (dx == 0 && dz == 0) continue;
+            if (!shouldSpawnTreeCandidate(wx + dx, wz + dz)) continue; // tania pre-check
+            uint32_t h2 = hash21(wx + dx, wz + dz, (uint32_t)m_seed + 1337u);
+            if (h2 <= myH) return false;
         }
     }
+    return true;
 }
 
 void World::update(const glm::vec3& cameraPos, int renderDistance) {
@@ -223,6 +199,7 @@ void World::update(const glm::vec3& cameraPos, int renderDistance) {
         
         auto chunk = std::make_unique<Chunk>(glm::ivec3(bestPos.x, 0, bestPos.y));
         generateChunkTerrain(*chunk);
+        generateChunkTrees(*chunk);
         chunk->buildMesh();
         m_chunks[bestPos] = std::move(chunk);
         loadedThisFrame++;
@@ -251,5 +228,92 @@ void World::draw(Shader& shader) const {
         glm::mat4 model = glm::translate(glm::mat4(1.0f), chunk->worldPos());
         shader.setMat4("uModel", model);
         chunk->draw();
+    }
+}
+
+void World::placeTreeAt(Chunk& chunk, int wx, int wz, int baseY) {
+    const glm::ivec3 cp = chunk.chunkPos();
+    const int chunkOriginX = cp.x * Chunk::SIZE_X;
+    const int chunkOriginZ = cp.z * Chunk::SIZE_Z;
+
+    int trunkH = 4 + (hash21(wx, wz, (uint32_t)m_seed + 99u) % 3);
+    if (baseY + trunkH + TREE_CROWN_H >= Chunk::SIZE_Y) return;
+
+    auto tryPlace = [&](int wxx, int wy, int wzz, BlockType t, bool overwrite) {
+        int lx = wxx - chunkOriginX;
+        int lz = wzz - chunkOriginZ;
+        if (lx < 0 || lx >= Chunk::SIZE_X) return; 
+        if (lz < 0 || lz >= Chunk::SIZE_Z) return;
+        if (wy < 0 || wy >= Chunk::SIZE_Y) return;
+        BlockType cur = chunk.getBlock(lx, wy, lz);
+        if (!overwrite && cur != BlockType::Air && cur != BlockType::Leaves) return;
+        chunk.setBlock(lx, wy, lz, t);
+        };
+
+    for (int i = 1; i <= trunkH; i++) {
+        tryPlace(wx, baseY + i, wz, BlockType::Wood, true);
+    }
+
+    int topY = baseY + trunkH;
+    for (int layer = 0; layer < TREE_CROWN_H; layer++) {
+        int y = topY + layer - 1;
+        int r = (layer <= 1) ? 2 : 1;
+        for (int dz = -r; dz <= r; dz++) {
+            for (int dx = -r; dx <= r; dx++) {
+                bool corner = (std::abs(dx) == r && std::abs(dz) == r);
+                if (layer <= 1 && corner) {
+                    uint32_t hh = hash21(wx + dx, wz + dz, (uint32_t)m_seed + 77u + layer);
+                    if ((hh & 1u) == 0u) continue;
+                }
+                if (layer == 3 && (std::abs(dx) + std::abs(dz) > 1)) continue;
+                if (dx == 0 && dz == 0 && layer < 2) continue;
+                tryPlace(wx + dx, y, wz + dz, BlockType::Leaves, false);
+            }
+        }
+    }
+}
+
+void World::generateChunkTerrain(Chunk& chunk) {
+    glm::ivec3 cp = chunk.chunkPos();
+    int worldOffsetX = cp.x * Chunk::SIZE_X;
+    int worldOffsetZ = cp.z * Chunk::SIZE_Z;
+
+    for (int x = 0; x < Chunk::SIZE_X; x++) {
+        for (int z = 0; z < Chunk::SIZE_Z; z++) {
+            int wx = worldOffsetX + x;
+            int wz = worldOffsetZ + z;
+
+            int height = sampleHeight(wx, wz);
+            BlockType topBlock = sampleTopBlock(height);
+            BlockType subBlock = (topBlock == BlockType::Grass) ? BlockType::Dirt
+                : (topBlock == BlockType::Sand) ? BlockType::Sand
+                : BlockType::Stone;
+
+            for (int y = 0; y < Chunk::SIZE_Y; y++) {
+                if (y < height - 4)        chunk.setBlock(x, y, z, BlockType::Stone);
+                else if (y < height)       chunk.setBlock(x, y, z, subBlock);
+                else if (y == height)      chunk.setBlock(x, y, z, topBlock);
+                else if (y <= SEA_LEVEL)   chunk.setBlock(x, y, z, BlockType::Water);
+                else                       chunk.setBlock(x, y, z, BlockType::Air);
+            }
+        }
+    }
+}
+
+void World::generateChunkTrees(Chunk& chunk) {
+    glm::ivec3 cp = chunk.chunkPos();
+    int worldOffsetX = cp.x * Chunk::SIZE_X;
+    int worldOffsetZ = cp.z * Chunk::SIZE_Z;
+
+    for (int x = -TREE_RADIUS; x < Chunk::SIZE_X + TREE_RADIUS; x++) {
+        for (int z = -TREE_RADIUS; z < Chunk::SIZE_Z + TREE_RADIUS; z++) {
+            int wx = worldOffsetX + x;
+            int wz = worldOffsetZ + z;
+
+            if (!shouldSpawnTree(wx, wz)) continue;
+
+            int baseY = sampleHeight(wx, wz);
+            placeTreeAt(chunk, wx, wz, baseY);
+        }
     }
 }
