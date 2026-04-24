@@ -40,6 +40,21 @@ World::World(int seed) : m_seed(seed) {
     m_noiseDetail.SetFractalOctaves(5);
     m_noiseDetail.SetFractalLacunarity(2.0f);
     m_noiseDetail.SetFractalGain(0.55f);
+
+    for (int i = 0; i < WORKER_THREADS; i++) {
+        m_workers.emplace_back([this] { workerLoop(); });
+    }
+}
+
+World::~World() {
+    {
+        std::lock_guard<std::mutex> lk(m_queueMutex);
+        m_running = false;
+    }
+    m_cv.notify_all();
+    for (auto& t : m_workers) {
+        if (t.joinable()) t.join();
+    }
 }
 
 Chunk* World::getChunk(int cx, int cz) {
@@ -163,55 +178,73 @@ bool World::shouldSpawnTree(int wx, int wz) {
 }
 
 void World::update(const glm::vec3& cameraPos, int renderDistance) {
-    
     int camCx, camCz, lx, lz;
     chunkCoordsFromWorld((int)std::floor(cameraPos.x), (int)std::floor(cameraPos.z),
         camCx, camCz, lx, lz);
+    {
+        std::lock_guard<std::mutex> lk(m_queueMutex);
 
-    
-    int loadedThisFrame = 0;
-    int bestDist = INT_MAX;
-    glm::ivec2 bestPos;
-    bool foundMissing = false;
+        while (m_requestQueue.size() < 16) {
+            int bestDist = INT_MAX;
+            glm::ivec2 bestPos{};
+            bool foundMissing = false;
 
-    
-    for (int attempt = 0; attempt < MAX_CHUNKS_LOADED_PER_FRAME; attempt++) {
-        bestDist = INT_MAX;
-        foundMissing = false;
+            for (int dz = -renderDistance; dz <= renderDistance; dz++) {
+                for (int dx = -renderDistance; dx <= renderDistance; dx++) {
+                    int cx = camCx + dx;
+                    int cz = camCz + dz;
+                    int dist = dx * dx + dz * dz;
+                    if (dist > renderDistance * renderDistance) continue;
 
-        for (int dz = -renderDistance; dz <= renderDistance; dz++) {
-            for (int dx = -renderDistance; dx <= renderDistance; dx++) {
-                int cx = camCx + dx;
-                int cz = camCz + dz;
-                int dist = dx * dx + dz * dz;
-                if (dist > renderDistance * renderDistance) continue;
+                    glm::ivec2 pos{ cx, cz };
+                    if (m_chunks.count(pos)) continue;
+                    if (m_inFlight.count(pos)) continue;
 
-                if (m_chunks.find({ cx, cz }) == m_chunks.end() && dist < bestDist) {
-                    bestDist = dist;
-                    bestPos = { cx, cz };
-                    foundMissing = true;
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        bestPos = pos;
+                        foundMissing = true;
+                    }
                 }
             }
+
+            if (!foundMissing) break;
+            m_inFlight.insert(bestPos);
+            m_requestQueue.push(bestPos);
+        }
+    }
+    m_cv.notify_all();
+
+    int meshedThisFrame = 0;
+    while (meshedThisFrame < MAX_MESH_UPLOADS_PER_FRAME) {
+        std::unique_ptr<Chunk> chunk;
+        glm::ivec2 pos;
+        {
+            std::lock_guard<std::mutex> lk(m_queueMutex);
+            if (m_readyQueue.empty()) break;
+            chunk = std::move(m_readyQueue.front());
+            m_readyQueue.pop();
+            pos = { chunk->chunkPos().x, chunk->chunkPos().z };
+            m_inFlight.erase(pos);
         }
 
-        if (!foundMissing) break;
+        int dx = pos.x - camCx;
+        int dz = pos.y - camCz;
+        if (dx * dx + dz * dz > (renderDistance + 1) * (renderDistance + 1)) {
+            continue;
+        }
 
-        
-        auto chunk = std::make_unique<Chunk>(glm::ivec3(bestPos.x, 0, bestPos.y));
-		chunk->setWorld(this);
-        generateChunkTerrain(*chunk);
-        generateChunkTrees(*chunk);
+        chunk->setWorld(this);
         chunk->buildMesh();
-        m_chunks[bestPos] = std::move(chunk);
-        loadedThisFrame++;
+        m_chunks[pos] = std::move(chunk);
+        meshedThisFrame++;
 
-		if (Chunk* n = getChunk(bestPos.x - 1, bestPos.y)) n->buildMesh();
-        if (Chunk* n = getChunk(bestPos.x + 1, bestPos.y)) n->buildMesh();
-        if (Chunk* n = getChunk(bestPos.x, bestPos.y - 1)) n->buildMesh();
-        if (Chunk* n = getChunk(bestPos.x, bestPos.y + 1)) n->buildMesh();
+        if (getChunk(pos.x - 1, pos.y)) m_dirtyMeshes.insert({ pos.x - 1, pos.y });
+        if (getChunk(pos.x + 1, pos.y)) m_dirtyMeshes.insert({ pos.x + 1, pos.y });
+        if (getChunk(pos.x, pos.y - 1)) m_dirtyMeshes.insert({ pos.x,     pos.y - 1 });
+        if (getChunk(pos.x, pos.y + 1)) m_dirtyMeshes.insert({ pos.x,     pos.y + 1 });
     }
 
-   
     int unloadedThisFrame = 0;
     std::vector<glm::ivec2> toRemove;
     for (auto& [pos, chunk] : m_chunks) {
@@ -227,10 +260,20 @@ void World::update(const glm::vec3& cameraPos, int renderDistance) {
         m_chunks.erase(p);
         unloadedThisFrame++;
 
-		if (Chunk* n = getChunk(p.x - 1, p.y)) n->buildMesh();
-        if (Chunk* n = getChunk(p.x + 1, p.y)) n->buildMesh();
-        if (Chunk* n = getChunk(p.x, p.y - 1)) n->buildMesh();
-        if (Chunk* n = getChunk(p.x, p.y + 1)) n->buildMesh();
+        if (Chunk* n = getChunk(p.x - 1, p.y)) m_dirtyMeshes.insert({ p.x - 1, p.y });
+        if (Chunk* n = getChunk(p.x + 1, p.y)) m_dirtyMeshes.insert({ p.x + 1, p.y });
+        if (Chunk* n = getChunk(p.x, p.y - 1)) m_dirtyMeshes.insert({ p.x,     p.y - 1 });
+        if (Chunk* n = getChunk(p.x, p.y + 1)) m_dirtyMeshes.insert({ p.x,     p.y + 1 });
+    }
+
+	int rebuiltThisFrame = 0;
+	auto it = m_dirtyMeshes.begin();
+    while (it != m_dirtyMeshes.end() && rebuiltThisFrame < MAX_DIRTY_REBUILDS_PER_FRAME) {
+        if (Chunk* c = getChunk(it->x, it->y)) {
+            c->buildMesh();
+            rebuiltThisFrame++;
+        }
+        it = m_dirtyMeshes.erase(it);
     }
 }
 
@@ -325,6 +368,28 @@ void World::generateChunkTrees(Chunk& chunk) {
 
             int baseY = sampleHeight(wx, wz);
             placeTreeAt(chunk, wx, wz, baseY);
+        }
+    }
+}
+
+void World::workerLoop() {
+    while (true) {
+        glm::ivec2 pos;
+        {
+            std::unique_lock<std::mutex> lk(m_queueMutex);
+            m_cv.wait(lk, [this] { return !m_running || !m_requestQueue.empty(); });
+            if (!m_running && m_requestQueue.empty()) return;
+            pos = m_requestQueue.front();
+            m_requestQueue.pop();
+        }
+
+        auto chunk = std::make_unique<Chunk>(glm::ivec3(pos.x, 0, pos.y));
+        generateChunkTerrain(*chunk);
+        generateChunkTrees(*chunk);
+
+        {
+            std::lock_guard<std::mutex> lk(m_queueMutex);
+            m_readyQueue.push(std::move(chunk));
         }
     }
 }

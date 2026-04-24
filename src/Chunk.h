@@ -8,38 +8,41 @@ class World;
 
 class Chunk {
 public:
-	static constexpr int SIZE_X = 16;
-	static constexpr int SIZE_Y = 128;
-	static constexpr int SIZE_Z = 16;
+    static constexpr int SIZE_X = 16;
+    static constexpr int SIZE_Y = 128;
+    static constexpr int SIZE_Z = 16;
 
-	Chunk(glm::ivec3 chunkPos);
-	~Chunk();
+    Chunk(glm::ivec3 chunkPos);
+    ~Chunk();
 
-	Chunk(const Chunk&) = delete;
-	Chunk& operator=(const Chunk&) = delete;
+    Chunk(const Chunk&) = delete;
+    Chunk& operator=(const Chunk&) = delete;
 
-	void generateTerrain();
-	void buildMesh();
-	void draw() const;
+    void generateTerrain();
+    void buildMesh();        
+    void draw() const;
 
-	BlockType getBlock(int x, int y, int z) const;
-	void setBlock(int x, int y, int z, BlockType t);
+    BlockType getBlock(int x, int y, int z) const;
+    void setBlock(int x, int y, int z, BlockType t);
 
-	void setWorld(World* w) { m_world = w; }
+    void setWorld(World* w) { m_world = w; }
 
-	glm::ivec3 chunkPos() const { return m_pos; }
-	glm::vec3 worldPos() const {
-		return glm::vec3(m_pos.x * SIZE_X, m_pos.y * SIZE_Y, m_pos.z * SIZE_Z);
-	}
+    glm::ivec3 chunkPos() const { return m_pos; }
+    glm::vec3 worldPos() const {
+        return glm::vec3(m_pos.x * SIZE_X, m_pos.y * SIZE_Y, m_pos.z * SIZE_Z);
+    }
 
 private:
-	glm::ivec3 m_pos;
-	BlockType m_bloks[SIZE_X][SIZE_Y][SIZE_Z]{};
+    glm::ivec3 m_pos;
+    BlockType m_bloks[SIZE_X][SIZE_Y][SIZE_Z]{};
 
-	GLuint m_VAO = 0, m_VBO = 0;
-	GLsizei m_vertexCount = 0;
-	bool inBounds(int x, int y, int z) const;
+    GLuint m_VAO = 0, m_VBO = 0;
+    GLsizei m_vertexCount = 0;
+    bool m_glInitialized = false;
 
-	BlockType getBlockForCulling(int x, int y, int z) const;
-	World* m_world = nullptr;
+    bool inBounds(int x, int y, int z) const;
+    BlockType getBlockForCulling(int x, int y, int z) const;
+    void initGL();
+
+    World* m_world = nullptr;
 };

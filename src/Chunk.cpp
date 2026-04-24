@@ -44,13 +44,19 @@ static bool shouldDrawFace(BlockType current, BlockType neighbor) {
 }
 
 Chunk::Chunk(glm::ivec3 pos) : m_pos(pos) {
-	glGenVertexArrays(1, &m_VAO);
-	glGenBuffers(1, &m_VBO);
+
 }
 
 Chunk::~Chunk() {
 	if (m_VBO) glDeleteBuffers(1, &m_VBO);
 	if (m_VAO) glDeleteVertexArrays(1, &m_VAO);
+}
+
+void Chunk::initGL() {
+    if (m_glInitialized) return;
+    glGenVertexArrays(1, &m_VAO);
+    glGenBuffers(1, &m_VBO);
+    m_glInitialized = true;
 }
 
 bool Chunk::inBounds(int x, int y, int z) const {
@@ -96,6 +102,7 @@ void Chunk::generateTerrain() {
 }
 
 void Chunk::buildMesh() {
+    initGL();
     std::vector<float> verts;
     verts.reserve(20000);
 
