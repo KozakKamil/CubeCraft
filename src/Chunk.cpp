@@ -3,22 +3,26 @@
 #include <iostream>
 #include <glm/glm.hpp>
 
-static constexpr float TILE_U = 1.0f / 9.0f;
+static constexpr float TILE_U = 1.0f / 13.0f;
 
 static void getUVRange(BlockType type, int face, float& uMin, float& uMax) {
     int tile = 0;
     if (type == BlockType::Grass) {
         if (face == 2)      tile = 0;
-        else if (face == 3) tile = 2; 
+        else if (face == 3) tile = 2;
         else                tile = 1;
     }
-    else if (type == BlockType::Dirt)  tile = 2;
-    else if (type == BlockType::Stone) tile = 3;
-    else if (type == BlockType::Sand)  tile = 4;
-    else if (type == BlockType::Snow)  tile = 5;
-    else if (type == BlockType::Water) tile = 6;
-    else if (type == BlockType::Wood)  tile = 7;
-	else if (type == BlockType::Leaves) tile = 8;
+    else if (type == BlockType::Dirt)       tile = 2;
+    else if (type == BlockType::Stone)      tile = 3;
+    else if (type == BlockType::Sand)       tile = 4;
+    else if (type == BlockType::Snow)       tile = 5;
+    else if (type == BlockType::Water)      tile = 6;
+    else if (type == BlockType::Wood)       tile = 7;
+    else if (type == BlockType::Leaves)     tile = 8;
+    else if (type == BlockType::CoalOre)    tile = 9;    
+    else if (type == BlockType::IronOre)    tile = 10;  
+    else if (type == BlockType::GoldOre)    tile = 11;  
+    else if (type == BlockType::DiamondOre) tile = 12; 
     else { uMin = 0; uMax = 0; return; }
 
     uMin = tile * TILE_U;

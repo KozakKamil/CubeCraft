@@ -51,6 +51,9 @@ private:
     FastNoiseLite m_noiseContinental;
     FastNoiseLite m_noiseHilliness;
     FastNoiseLite m_noiseDetail;
+    FastNoiseLite m_noiseCaves;
+    FastNoiseLite m_noiseCaves2;
+    FastNoiseLite m_noiseOres;
     int m_seed;
 
     std::vector<std::thread> m_workers;

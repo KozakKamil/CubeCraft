@@ -35,9 +35,9 @@ Texture::Texture(const std::string& path) {
 }
 Texture::Texture() {
     constexpr int TILE = 16;
-    constexpr int TILES = 9;
-    constexpr int W = TILE * TILES;  
-    constexpr int H = TILE;          
+    constexpr int TILES = 13;
+    constexpr int W = TILE * TILES;
+    constexpr int H = TILE;
     std::vector<uint8_t> pixels(W * H * 3);
 
     auto setPx = [&](int x, int y, uint8_t r, uint8_t g, uint8_t b) {
@@ -52,16 +52,22 @@ Texture::Texture() {
     auto sandNoise = [](int x, int y) { return ((x * 53 + y * 91) % 9) - 4; };
     auto snowNoise = [](int x, int y) { return ((x * 211 + y * 47) % 15) - 7; };
     auto waterNoise = [](int x, int y) { return ((x * 113 + y * 67) % 19) - 9; };
-	auto woodNoise = [](int x, int y) { return ((x * 97 + y * 41) % 11) - 5; };
-	auto leavesNoise = [](int x, int y) { return ((x * 151 + y * 59) % 17) - 8; };
+    auto woodNoise = [](int x, int y) { return ((x * 97 + y * 41) % 11) - 5; };
+    auto leavesNoise = [](int x, int y) { return ((x * 151 + y * 59) % 17) - 8; };
+
+    auto orePatch = [](int x, int y, int seed) {
+        int h = (x * 263 + y * 419 + seed * 977);
+        h = (h ^ (h >> 13)) * 1274126177;
+        return (uint32_t)h;
+        };
 
     for (int y = 0; y < H; y++) {
         for (int x = 0; x < TILE; x++) {
             int n = noise(x, y);
 
-            setPx(x + TILE*0, y, 90 + n, 150 + n, 60 + n);
+            setPx(x + TILE * 0, y, 90 + n, 150 + n, 60 + n);
 
-            int sideX = x + TILE*1;
+            int sideX = x + TILE * 1;
             if (y >= H - 3) setPx(sideX, y, 90 + n, 150 + n, 60 + n);
             else            setPx(sideX, y, 134 + n, 96 + n, 67 + n);
 
@@ -79,11 +85,76 @@ Texture::Texture() {
             int wn = waterNoise(x, y);
             setPx(x + TILE * 6, y, 40 + wn, 90 + wn, 170 + wn);
 
-			int wdn = woodNoise(x, y);
-			setPx(x + TILE * 7, y, 120 + wdn, 80 + wdn, 50 + wdn);
+            int wdn = woodNoise(x, y);
+            setPx(x + TILE * 7, y, 120 + wdn, 80 + wdn, 50 + wdn);
 
-			int ln = leavesNoise(x, y);
-			setPx(x + TILE * 8, y, 60 + ln, 120 + ln, 55 + ln);
+            int ln = leavesNoise(x, y);
+            setPx(x + TILE * 8, y, 60 + ln, 120 + ln, 55 + ln);
+
+            uint8_t baseR = (uint8_t)(125 + sn);
+            uint8_t baseG = (uint8_t)(125 + sn);
+            uint8_t baseB = (uint8_t)(125 + sn);
+
+            // 9: Coal Ore -- czarne plamki
+            {
+                uint32_t h = orePatch(x, y, 1);
+                bool patch = (h % 100) < 35;
+                bool dark = (h % 100) < 18;
+                if (dark) {
+                    setPx(x + TILE * 9, y, 15, 15, 15);
+                }
+                else if (patch) {
+                    setPx(x + TILE * 9, y, 45, 45, 45);
+                }
+                else {
+                    setPx(x + TILE * 9, y, baseR, baseG, baseB);
+                }
+            }
+
+            {
+                uint32_t h = orePatch(x, y, 2);
+                bool patch = (h % 100) < 28;
+                bool hot = (h % 100) < 12;
+                if (hot) {
+                    setPx(x + TILE * 10, y, 200, 120, 60);
+                }
+                else if (patch) {
+                    setPx(x + TILE * 10, y, 160, 100, 70);
+                }
+                else {
+                    setPx(x + TILE * 10, y, baseR, baseG, baseB);
+                }
+            }
+
+            {
+                uint32_t h = orePatch(x, y, 3);
+                bool patch = (h % 100) < 22;
+                bool shiny = (h % 100) < 9;
+                if (shiny) {
+                    setPx(x + TILE * 11, y, 255, 230, 70);
+                }
+                else if (patch) {
+                    setPx(x + TILE * 11, y, 210, 180, 60);
+                }
+                else {
+                    setPx(x + TILE * 11, y, baseR, baseG, baseB);
+                }
+            }
+
+            {
+                uint32_t h = orePatch(x, y, 4);
+                bool patch = (h % 100) < 24;
+                bool shiny = (h % 100) < 10;
+                if (shiny) {
+                    setPx(x + TILE * 12, y, 140, 240, 250);
+                }
+                else if (patch) {
+                    setPx(x + TILE * 12, y, 90, 180, 200);
+                }
+                else {
+                    setPx(x + TILE * 12, y, baseR, baseG, baseB);
+                }
+            }
         }
     }
 

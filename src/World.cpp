@@ -18,21 +18,18 @@ static float rand01(int x, int z, uint32_t seed) {
 }
 
 World::World(int seed) : m_seed(seed) {
-    // 1. CONTINENTAL - wielkie kontynenty/oceany (niska freq)
     m_noiseContinental.SetSeed(seed);
     m_noiseContinental.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     m_noiseContinental.SetFrequency(0.005f);
     m_noiseContinental.SetFractalType(FastNoiseLite::FractalType_FBm);
     m_noiseContinental.SetFractalOctaves(3);
 
-    // 2. HILLINESS - selektor plasko/gorzysto (bardzo niska freq - wielkie regiony)
     m_noiseHilliness.SetSeed(seed + 1);
     m_noiseHilliness.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     m_noiseHilliness.SetFrequency(0.003f);
     m_noiseHilliness.SetFractalType(FastNoiseLite::FractalType_FBm);
     m_noiseHilliness.SetFractalOctaves(2);
 
-    // 3. DETAIL - ostre szczegoly gor (wysoka freq)
     m_noiseDetail.SetSeed(seed + 2);
     m_noiseDetail.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     m_noiseDetail.SetFrequency(0.025f);
@@ -40,6 +37,23 @@ World::World(int seed) : m_seed(seed) {
     m_noiseDetail.SetFractalOctaves(5);
     m_noiseDetail.SetFractalLacunarity(2.0f);
     m_noiseDetail.SetFractalGain(0.55f);
+    m_noiseDetail.SetFractalGain(0.55f);
+
+    m_noiseCaves.SetSeed(seed + 3);
+    m_noiseCaves.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    m_noiseCaves.SetFrequency(0.018f);     
+    m_noiseCaves.SetFractalType(FastNoiseLite::FractalType_FBm);
+    m_noiseCaves.SetFractalOctaves(2);
+
+    m_noiseCaves2.SetSeed(seed + 33);
+    m_noiseCaves2.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    m_noiseCaves2.SetFrequency(0.018f);
+    m_noiseCaves2.SetFractalType(FastNoiseLite::FractalType_FBm);
+    m_noiseCaves2.SetFractalOctaves(2);
+
+    m_noiseOres.SetSeed(seed + 4);
+    m_noiseOres.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    m_noiseOres.SetFrequency(0.12f);
 
     for (int i = 0; i < WORKER_THREADS; i++) {
         m_workers.emplace_back([this] { workerLoop(); });
@@ -332,6 +346,15 @@ void World::generateChunkTerrain(Chunk& chunk) {
     int worldOffsetX = cp.x * Chunk::SIZE_X;
     int worldOffsetZ = cp.z * Chunk::SIZE_Z;
 
+    // Parametry jaskin
+    constexpr float CAVE_THRESHOLD = 0.7f;
+    constexpr int   CAVE_MAX_Y = 60;
+    constexpr int   CAVE_MIN_Y = 5;
+    constexpr int   BEDROCK_Y = 2;
+
+    // Parametry rud
+    constexpr float ORE_THRESHOLD = 0.72f;
+
     for (int x = 0; x < Chunk::SIZE_X; x++) {
         for (int z = 0; z < Chunk::SIZE_Z; z++) {
             int wx = worldOffsetX + x;
@@ -344,11 +367,50 @@ void World::generateChunkTerrain(Chunk& chunk) {
                 : BlockType::Stone;
 
             for (int y = 0; y < Chunk::SIZE_Y; y++) {
-                if (y < height - 4)        chunk.setBlock(x, y, z, BlockType::Stone);
-                else if (y < height)       chunk.setBlock(x, y, z, subBlock);
-                else if (y == height)      chunk.setBlock(x, y, z, topBlock);
-                else if (y <= SEA_LEVEL)   chunk.setBlock(x, y, z, BlockType::Water);
-                else                       chunk.setBlock(x, y, z, BlockType::Air);
+                // 1) Dobierz blok terenowy
+                BlockType b;
+                if (y < height - 4)        b = BlockType::Stone;
+                else if (y < height)       b = subBlock;
+                else if (y == height)      b = topBlock;
+                else if (y <= SEA_LEVEL)   b = BlockType::Water;
+                else                       b = BlockType::Air;
+
+                if (y > BEDROCK_Y && (b == BlockType::Stone || b == BlockType::Dirt || b == BlockType::Grass))
+                {
+                    float n1 = m_noiseCaves.GetNoise((float)wx, (float)y * 1.5f, (float)wz);
+                    float r1 = 1.0f - std::abs(n1);
+
+                    float n2 = m_noiseCaves2.GetNoise((float)wx, (float)y * 1.5f, (float)wz);
+                    float r2 = 1.0f - std::abs(n2);
+
+                    constexpr float RIDGE_THRESHOLD = 0.85f;
+
+                    float surfaceDist = (float)(height - y);
+                    float surfaceFactor;
+                    if (surfaceDist < 0) {
+                        surfaceFactor = 0.0f;
+                    }
+                    else if (surfaceDist < 8) {
+                        surfaceFactor = surfaceDist / 8.0f * 0.7f;
+                    }
+                    else {
+                        surfaceFactor = 1.0f;
+                    }
+
+                    float depthBias = 0.0f;
+                    if (y < 30) depthBias = 0.03f;
+
+                    bool isCave = (r1 > RIDGE_THRESHOLD - depthBias)
+                        && (r2 > RIDGE_THRESHOLD - depthBias)
+                        && (surfaceFactor >= 1.0f
+                            || (surfaceFactor > 0.0f && (r1 + r2) > 1.82f));
+
+                    if (isCave && b != BlockType::Air) {
+                        b = BlockType::Air;
+                    }
+                }
+
+                chunk.setBlock(x, y, z, b);
             }
         }
     }

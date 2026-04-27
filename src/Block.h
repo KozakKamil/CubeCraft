@@ -10,7 +10,11 @@ enum class BlockType : uint8_t {
 	Snow,
 	Water,
 	Wood,
-	Leaves
+	Leaves,
+	CoalOre,     
+	IronOre,     
+	GoldOre,    
+	DiamondOre   
 };
 
 inline bool isAir(BlockType b) {
