@@ -2,6 +2,7 @@
 #include "Chunk.h"
 #include "FastNoiseLite.h"
 #include "CaveGenerator.h"
+#include "OreGenerator.h" 
 
 #include <glm/glm.hpp>
 #include <unordered_map>
@@ -60,6 +61,7 @@ private:
     FastNoiseLite m_noiseOres;
     int m_seed;
     CaveGenerator m_caveGen;
+    OreGenerator  m_oreGen;
 
     std::vector<std::thread> m_workers;
     std::mutex m_queueMutex;

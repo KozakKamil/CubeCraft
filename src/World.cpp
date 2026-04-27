@@ -17,7 +17,7 @@ static float rand01(int x, int z, uint32_t seed) {
     return (hash21(x, z, seed) & 0xFFFFFF) / float(0x1000000);
 }
 
-World::World(int seed) : m_seed(seed), m_caveGen(seed) {
+World::World(int seed) : m_seed(seed), m_caveGen(seed), m_oreGen(seed) {
     m_noiseContinental.SetSeed(seed);
     m_noiseContinental.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     m_noiseContinental.SetFrequency(0.005f);
@@ -425,6 +425,8 @@ void World::generateChunkTerrain(Chunk& chunk) {
     }
 
     m_caveGen.carveChunk(chunk, heights);
+    m_oreGen.generateOres(chunk);
+    m_oreGen.generateBedrock(chunk);
 }
 
 void World::generateChunkTrees(Chunk& chunk) {

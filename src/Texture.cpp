@@ -35,7 +35,7 @@ Texture::Texture(const std::string& path) {
 }
 Texture::Texture() {
     constexpr int TILE = 16;
-    constexpr int TILES = 13;
+    constexpr int TILES = 14;
     constexpr int W = TILE * TILES;
     constexpr int H = TILE;
     std::vector<uint8_t> pixels(W * H * 3);
@@ -54,6 +54,12 @@ Texture::Texture() {
     auto waterNoise = [](int x, int y) { return ((x * 113 + y * 67) % 19) - 9; };
     auto woodNoise = [](int x, int y) { return ((x * 97 + y * 41) % 11) - 5; };
     auto leavesNoise = [](int x, int y) { return ((x * 151 + y * 59) % 17) - 8; };
+
+    auto bedrockNoise = [](int x, int y) {
+        int h = (x * 313 + y * 173 + x * y * 7);
+        h = (h ^ (h >> 11)) * 668265263;
+        return (uint32_t)h;
+        };
 
     auto orePatch = [](int x, int y, int seed) {
         int h = (x * 263 + y * 419 + seed * 977);
@@ -154,6 +160,31 @@ Texture::Texture() {
                 else {
                     setPx(x + TILE * 12, y, baseR, baseG, baseB);
                 }
+            }
+
+            {
+                uint32_t h = bedrockNoise(x, y);
+                int variant = h % 100;
+                uint8_t r, g, b;
+                if (variant < 12) {
+                    r = g = b = 24;
+                }
+                else if (variant < 25) {
+                    r = g = b = 40;
+                }
+                else if (variant < 55) {
+                    r = g = b = 56;
+                }
+                else if (variant < 80) {
+                    r = g = b = 72;
+                }
+                else if (variant < 95) {
+                    r = g = b = 88;
+                }
+                else {
+                    r = g = b = 110;
+                }
+                setPx(x + TILE * 13, y, r, g, b);
             }
         }
     }

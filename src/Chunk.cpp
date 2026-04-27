@@ -3,7 +3,7 @@
 #include <iostream>
 #include <glm/glm.hpp>
 
-static constexpr float TILE_U = 1.0f / 13.0f;
+static constexpr float TILE_U = 1.0f / 14.0f;
 
 static void getUVRange(BlockType type, int face, float& uMin, float& uMax) {
     int tile = 0;
@@ -22,7 +22,8 @@ static void getUVRange(BlockType type, int face, float& uMin, float& uMax) {
     else if (type == BlockType::CoalOre)    tile = 9;    
     else if (type == BlockType::IronOre)    tile = 10;  
     else if (type == BlockType::GoldOre)    tile = 11;  
-    else if (type == BlockType::DiamondOre) tile = 12; 
+    else if (type == BlockType::DiamondOre) tile = 12;
+	else if (type == BlockType::Bedrock)    tile = 13;
     else { uMin = 0; uMax = 0; return; }
 
     uMin = tile * TILE_U;

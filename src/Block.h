@@ -14,7 +14,8 @@ enum class BlockType : uint8_t {
 	CoalOre,     
 	IronOre,     
 	GoldOre,    
-	DiamondOre   
+	DiamondOre,
+	Bedrock
 };
 
 inline bool isAir(BlockType b) {
