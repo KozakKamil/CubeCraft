@@ -17,7 +17,7 @@ static float rand01(int x, int z, uint32_t seed) {
     return (hash21(x, z, seed) & 0xFFFFFF) / float(0x1000000);
 }
 
-World::World(int seed) : m_seed(seed) {
+World::World(int seed) : m_seed(seed), m_caveGen(seed) {
     m_noiseContinental.SetSeed(seed);
     m_noiseContinental.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
     m_noiseContinental.SetFrequency(0.005f);
@@ -54,6 +54,8 @@ World::World(int seed) : m_seed(seed) {
     m_noiseOres.SetSeed(seed + 4);
     m_noiseOres.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     m_noiseOres.SetFrequency(0.12f);
+
+
 
     for (int i = 0; i < WORKER_THREADS; i++) {
         m_workers.emplace_back([this] { workerLoop(); });
@@ -346,14 +348,7 @@ void World::generateChunkTerrain(Chunk& chunk) {
     int worldOffsetX = cp.x * Chunk::SIZE_X;
     int worldOffsetZ = cp.z * Chunk::SIZE_Z;
 
-    // Parametry jaskin
-    constexpr float CAVE_THRESHOLD = 0.7f;
-    constexpr int   CAVE_MAX_Y = 60;
-    constexpr int   CAVE_MIN_Y = 5;
-    constexpr int   BEDROCK_Y = 2;
-
-    // Parametry rud
-    constexpr float ORE_THRESHOLD = 0.72f;
+    int heights[Chunk::SIZE_X][Chunk::SIZE_Z];
 
     for (int x = 0; x < Chunk::SIZE_X; x++) {
         for (int z = 0; z < Chunk::SIZE_Z; z++) {
@@ -361,13 +356,14 @@ void World::generateChunkTerrain(Chunk& chunk) {
             int wz = worldOffsetZ + z;
 
             int height = sampleHeight(wx, wz);
+            heights[x][z] = height;          
+
             BlockType topBlock = sampleTopBlock(height);
             BlockType subBlock = (topBlock == BlockType::Grass) ? BlockType::Dirt
                 : (topBlock == BlockType::Sand) ? BlockType::Sand
                 : BlockType::Stone;
 
             for (int y = 0; y < Chunk::SIZE_Y; y++) {
-                // 1) Dobierz blok terenowy
                 BlockType b;
                 if (y < height - 4)        b = BlockType::Stone;
                 else if (y < height)       b = subBlock;
@@ -375,45 +371,12 @@ void World::generateChunkTerrain(Chunk& chunk) {
                 else if (y <= SEA_LEVEL)   b = BlockType::Water;
                 else                       b = BlockType::Air;
 
-                if (y > BEDROCK_Y && (b == BlockType::Stone || b == BlockType::Dirt || b == BlockType::Grass))
-                {
-                    float n1 = m_noiseCaves.GetNoise((float)wx, (float)y * 1.5f, (float)wz);
-                    float r1 = 1.0f - std::abs(n1);
-
-                    float n2 = m_noiseCaves2.GetNoise((float)wx, (float)y * 1.5f, (float)wz);
-                    float r2 = 1.0f - std::abs(n2);
-
-                    constexpr float RIDGE_THRESHOLD = 0.85f;
-
-                    float surfaceDist = (float)(height - y);
-                    float surfaceFactor;
-                    if (surfaceDist < 0) {
-                        surfaceFactor = 0.0f;
-                    }
-                    else if (surfaceDist < 8) {
-                        surfaceFactor = surfaceDist / 8.0f * 0.7f;
-                    }
-                    else {
-                        surfaceFactor = 1.0f;
-                    }
-
-                    float depthBias = 0.0f;
-                    if (y < 30) depthBias = 0.03f;
-
-                    bool isCave = (r1 > RIDGE_THRESHOLD - depthBias)
-                        && (r2 > RIDGE_THRESHOLD - depthBias)
-                        && (surfaceFactor >= 1.0f
-                            || (surfaceFactor > 0.0f && (r1 + r2) > 1.82f));
-
-                    if (isCave && b != BlockType::Air) {
-                        b = BlockType::Air;
-                    }
-                }
-
                 chunk.setBlock(x, y, z, b);
             }
         }
     }
+
+    m_caveGen.carveChunk(chunk, heights);              
 }
 
 void World::generateChunkTrees(Chunk& chunk) {

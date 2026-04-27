@@ -18,6 +18,7 @@ add_executable(CubeCraft
     src/Chunk.cpp
     src/World.cpp
     src/Skybox.cpp
+    src/CaveGenerator.cpp
 )
 
 target_link_libraries(CubeCraft PRIVATE

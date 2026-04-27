@@ -1,6 +1,7 @@
 #pragma once
 #include "Chunk.h"
 #include "FastNoiseLite.h"
+#include "CaveGenerator.h"
 
 #include <glm/glm.hpp>
 #include <unordered_map>
@@ -51,10 +52,11 @@ private:
     FastNoiseLite m_noiseContinental;
     FastNoiseLite m_noiseHilliness;
     FastNoiseLite m_noiseDetail;
-    FastNoiseLite m_noiseCaves;
-    FastNoiseLite m_noiseCaves2;
+    FastNoiseLite m_noiseCaves;     
+    FastNoiseLite m_noiseCaves2;    
     FastNoiseLite m_noiseOres;
     int m_seed;
+    CaveGenerator m_caveGen;
 
     std::vector<std::thread> m_workers;
     std::mutex m_queueMutex;
