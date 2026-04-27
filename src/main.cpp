@@ -1,6 +1,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <chrono> 
 
 #include "Texture.h"
 #include "Shader.h"
@@ -89,7 +90,10 @@ int main() {
     Shader shader("shaders/basic.vert", "shaders/basic.frag");
     Texture grassAtlas;
 
-    World world(1337);
+    int worldSeed = (int)std::chrono::system_clock::now().time_since_epoch().count();
+    std::cout << "Seed swiata: " << worldSeed << "\n";
+
+    World world(worldSeed);
     Skybox skybox;
     g_world = &world;
 

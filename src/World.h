@@ -52,8 +52,11 @@ private:
     FastNoiseLite m_noiseContinental;
     FastNoiseLite m_noiseHilliness;
     FastNoiseLite m_noiseDetail;
-    FastNoiseLite m_noiseCaves;     
-    FastNoiseLite m_noiseCaves2;    
+    FastNoiseLite m_noiseMountains;   // ridged noise dla gor
+    FastNoiseLite m_noiseErosion;     // maska gor / nizin
+    FastNoiseLite m_noiseCliff3D;     // 3D do wycinania klifow
+    FastNoiseLite m_noiseCaves;
+    FastNoiseLite m_noiseCaves2;
     FastNoiseLite m_noiseOres;
     int m_seed;
     CaveGenerator m_caveGen;
@@ -65,7 +68,7 @@ private:
     std::queue<std::unique_ptr<Chunk>> m_readyQueue;
     std::unordered_set<glm::ivec2, IVec2Hash, IVec2Eq> m_inFlight;
     std::atomic<bool> m_running{ true };
-	std::unordered_set<glm::ivec2, IVec2Hash, IVec2Eq> m_dirtyMeshes;
+    std::unordered_set<glm::ivec2, IVec2Hash, IVec2Eq> m_dirtyMeshes;
 
     static constexpr int WORKER_THREADS = 2;
     static constexpr int MAX_MESH_UPLOADS_PER_FRAME = 1;

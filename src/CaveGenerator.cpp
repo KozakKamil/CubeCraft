@@ -108,8 +108,17 @@ void CaveGenerator::emitCavesFromOrigin(Chunk& target,
 
     for (int i = 0; i < caveCount; i++) {
         double x = (double)(ocx * Chunk::SIZE_X) + rng.nextInt(Chunk::SIZE_X);
-        // ZMIANA: znacznie nizszy start Y (bias w okolice y=10..35)
-        double y = (double)rng.nextInt(rng.nextInt(50) + 8);
+        double y;
+        int tier = rng.nextInt(10);
+        if (tier < 2) {
+            y = (double)(8 + rng.nextInt(15));        
+        }
+        else if (tier < 8) {
+            y = (double)(20 + rng.nextInt(30));       
+        }
+        else {
+            y = (double)(45 + rng.nextInt(35));       
+        }
         double z = (double)(ocz * Chunk::SIZE_Z) + rng.nextInt(Chunk::SIZE_Z);
 
         int branches = 1;
@@ -173,7 +182,7 @@ void CaveGenerator::carveTunnel(Chunk& target,
         yawDelta = yawDelta * 0.75f + (rng.nextFloat() - rng.nextFloat()) * 4.0f;
 
         // Hard cap - jaskinie tylko w dolnej polowie swiata
-        if (y < 1 || y > 70) continue;
+        if (y < 1 || y > Chunk::SIZE_Y - 8) continue;
 
         double dx = x - chunkCx;
         double dz = z - chunkCz;

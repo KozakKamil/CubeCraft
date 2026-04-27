@@ -37,11 +37,33 @@ World::World(int seed) : m_seed(seed), m_caveGen(seed) {
     m_noiseDetail.SetFractalOctaves(5);
     m_noiseDetail.SetFractalLacunarity(2.0f);
     m_noiseDetail.SetFractalGain(0.55f);
-    m_noiseDetail.SetFractalGain(0.55f);
+
+    // === GORY: ridged noise dla ostrych grzbietow ===
+    m_noiseMountains.SetSeed(seed + 5);
+    m_noiseMountains.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    m_noiseMountains.SetFrequency(0.0035f);
+    m_noiseMountains.SetFractalType(FastNoiseLite::FractalType_Ridged);
+    m_noiseMountains.SetFractalOctaves(4);
+    m_noiseMountains.SetFractalLacunarity(2.2f);
+    m_noiseMountains.SetFractalGain(0.55f);
+
+    // === EROZJA: gdzie sa gory, gdzie niziny ===
+    m_noiseErosion.SetSeed(seed + 6);
+    m_noiseErosion.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    m_noiseErosion.SetFrequency(0.0015f);
+    m_noiseErosion.SetFractalType(FastNoiseLite::FractalType_FBm);
+    m_noiseErosion.SetFractalOctaves(2);
+
+    // === 3D KLIFY ===
+    m_noiseCliff3D.SetSeed(seed + 7);
+    m_noiseCliff3D.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    m_noiseCliff3D.SetFrequency(0.055f);
+    m_noiseCliff3D.SetFractalType(FastNoiseLite::FractalType_FBm);
+    m_noiseCliff3D.SetFractalOctaves(3);
 
     m_noiseCaves.SetSeed(seed + 3);
     m_noiseCaves.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    m_noiseCaves.SetFrequency(0.018f);     
+    m_noiseCaves.SetFrequency(0.018f);
     m_noiseCaves.SetFractalType(FastNoiseLite::FractalType_FBm);
     m_noiseCaves.SetFractalOctaves(2);
 
@@ -54,8 +76,6 @@ World::World(int seed) : m_seed(seed), m_caveGen(seed) {
     m_noiseOres.SetSeed(seed + 4);
     m_noiseOres.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     m_noiseOres.SetFrequency(0.12f);
-
-
 
     for (int i = 0; i < WORKER_THREADS; i++) {
         m_workers.emplace_back([this] { workerLoop(); });
@@ -148,13 +168,27 @@ int World::sampleHeight(int wx, int wz) {
     float fwz = (float)wz;
 
     float continental = m_noiseContinental.GetNoise(fwx, fwz);
-	float hillinesRaw = m_noiseHilliness.GetNoise(fwx, fwz);
+    int baseHeight = BASE_HEIGHT + (int)(continental * 8.0f);     
+
+    float erosionRaw = m_noiseErosion.GetNoise(fwx, fwz);
+    float erosion = (erosionRaw + 1.0f) * 0.5f;                   
+
+    float hillRaw = m_noiseHilliness.GetNoise(fwx, fwz);
+    float hills = (hillRaw + 1.0f) * 0.5f;
+    int hillHeight = (int)(hills * hills * 12.0f);                
+
+    float mountainRaw = m_noiseMountains.GetNoise(fwx, fwz);
+    float mountains = std::max(0.0f, mountainRaw);
+    mountains = std::pow(mountains, 1.5f);
+    float mountainMask = std::max(0.0f, erosion - 0.35f) / 0.65f;
+    mountainMask = mountainMask * mountainMask;
+    int mountainHeight = (int)(mountains * mountainMask * 95.0f); 
+
     float detail = m_noiseDetail.GetNoise(fwx, fwz);
+    int detailHeight = (int)(detail * 2.0f);                      
 
-    float hillness = (hillinesRaw + 1.0f) * 0.5f;
-    hillness = hillness * hillness * hillness;
+    int height = baseHeight + hillHeight + mountainHeight + detailHeight;
 
-    int height = BASE_HEIGHT + (int)(continental * 10.0f) + (int)(hillness * detail * 40.0f);
     if (height < 1) height = 1;
     if (height >= Chunk::SIZE_Y) height = Chunk::SIZE_Y - 1;
     return height;
@@ -356,7 +390,7 @@ void World::generateChunkTerrain(Chunk& chunk) {
             int wz = worldOffsetZ + z;
 
             int height = sampleHeight(wx, wz);
-            heights[x][z] = height;          
+            heights[x][z] = height;
 
             BlockType topBlock = sampleTopBlock(height);
             BlockType subBlock = (topBlock == BlockType::Grass) ? BlockType::Dirt
@@ -371,12 +405,26 @@ void World::generateChunkTerrain(Chunk& chunk) {
                 else if (y <= SEA_LEVEL)   b = BlockType::Water;
                 else                       b = BlockType::Air;
 
+                // === KLIFY / NAWISY ===
+                // W gorach (height > 58), do 16 blokow w glab
+                if (height > 58 && y >= height - 16 && y <= height &&
+                    b != BlockType::Air && b != BlockType::Water && y > SEA_LEVEL)
+                {
+                    float cn = m_noiseCliff3D.GetNoise((float)wx, (float)y * 1.0f, (float)wz);
+                    float depth = (float)(height - y) / 16.0f;          // 0..1
+                    float strength = std::min(1.0f, (height - 58) / 40.0f);
+                    float threshold = 0.35f + depth * 0.35f - strength * 0.15f;
+                    if (cn > threshold) {
+                        b = BlockType::Air;
+                    }
+                }
+
                 chunk.setBlock(x, y, z, b);
             }
         }
     }
 
-    m_caveGen.carveChunk(chunk, heights);              
+    m_caveGen.carveChunk(chunk, heights);
 }
 
 void World::generateChunkTrees(Chunk& chunk) {
