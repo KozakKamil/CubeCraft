@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cmath>
 #include <cstdint>
+#include "LightEngine.h"
 
 static uint32_t hash21(int x, int z, uint32_t seed) {
     uint32_t h = seed;
@@ -122,8 +123,8 @@ void World::setBlockWorld(int wx, int wy, int wz, BlockType type) {
     if (!c) return;
 
     c->setBlock(lx, wy, lz, type);
+    LightEngine::computeChunkLight(*c);
     c->buildMesh();
-
 
     if (lx == 0)                     if (Chunk* n = getChunk(cx - 1, cz)) n->buildMesh();
     if (lx == Chunk::SIZE_X - 1)     if (Chunk* n = getChunk(cx + 1, cz)) n->buildMesh();
@@ -461,6 +462,7 @@ void World::workerLoop() {
         auto chunk = std::make_unique<Chunk>(glm::ivec3(pos.x, 0, pos.y));
         generateChunkTerrain(*chunk);
         generateChunkTrees(*chunk);
+        LightEngine::computeChunkLight(*chunk);
 
         {
             std::lock_guard<std::mutex> lk(m_queueMutex);

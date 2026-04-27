@@ -20,7 +20,7 @@ add_executable(CubeCraft
     src/Skybox.cpp
     src/CaveGenerator.cpp
     src/OreGenerator.cpp
-)
+ "src/LightEngine.h" "src/LightEngine.cpp")
 
 target_link_libraries(CubeCraft PRIVATE
     glfw

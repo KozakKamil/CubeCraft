@@ -4,6 +4,7 @@ in vec2 vUV;
 in vec3 vNormal;
 in vec3 vWorldPos;
 in float vAO;
+in float vLight;
 
 out vec4 FragColor;
 
@@ -18,13 +19,18 @@ uniform float uFogEnd;
 void main() {
     vec4 texColor = texture(uTexture, vUV);
 
-    // Oswietlenie
+    // Oswietlenie kierunkowe (slonce)
     float diff = max(dot(normalize(vNormal), -uLightDir), 0.0);
     float lightIntensity = uAmbient + (1.0 - uAmbient) * diff;
 
+    // Block/sky light z LightEngine (0..1)
+    float blockLight = max(0.1, vLight);
+
+    // Ambient occlusion - delikatne ciemnienie w rogach
     float aoFactor = mix(0.7, 1.0, vAO);
 
-    vec3 litColor = texColor.rgb * lightIntensity;
+    // Skladamy wszystko razem
+    vec3 litColor = texColor.rgb * lightIntensity * blockLight * aoFactor;
 
     // Mgla
     float dist = length(vWorldPos - uCameraPos);

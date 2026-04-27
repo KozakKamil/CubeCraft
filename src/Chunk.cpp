@@ -154,16 +154,23 @@ void Chunk::buildMesh() {
             return computeAOCorner(s1, s2, c);
             };
 
-        ao[0] = aoAt(-1, 0, 0, -1); 
-        ao[1] = aoAt(1, 0, 0, -1); 
-        ao[2] = aoAt(1, 0, 0, 1); 
-        ao[3] = aoAt(-1, 0, 0, 1); 
+        ao[0] = aoAt(-1, 0, 0, -1);
+        ao[1] = aoAt(1, 0, 0, -1);
+        ao[2] = aoAt(1, 0, 0, 1);
+        ao[3] = aoAt(-1, 0, 0, 1);
 
-        auto push = [&](float px, float py, float pz, float u, float v, float aoVal) {
+        float lightF = 1.0f;
+        if (oy >= 0 && oy < SIZE_Y && ox >= 0 && ox < SIZE_X && oz >= 0 && oz < SIZE_Z) {
+            uint8_t l = getCombinedLight(ox, oy, oz);
+            lightF = (float)l / 15.0f;
+        }
+
+        auto push = [&](float px, float py, float pz, float u, float v, float aoVal, float lightVal) {
             verts.push_back(px); verts.push_back(py); verts.push_back(pz);
             verts.push_back(u);  verts.push_back(v);
             verts.push_back(nx); verts.push_back(ny); verts.push_back(nz);
             verts.push_back(aoVal);
+            verts.push_back(lightVal);
             };
 
         bool flip = (ao[0] + ao[2] < ao[1] + ao[3]);
@@ -217,7 +224,7 @@ void Chunk::buildMesh() {
 
         for (int k = 0; k < 6; k++) {
             int i = idx[k];
-            push(p[i].x, p[i].y, p[i].z, cu[i], cv[i], ao[i]);
+            push(p[i].x, p[i].y, p[i].z, cu[i], cv[i], ao[i], lightF);
         }
         };
 
@@ -241,7 +248,7 @@ void Chunk::buildMesh() {
     glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
     glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_STATIC_DRAW);
 
-    constexpr GLsizei STRIDE = 9 * sizeof(float);
+    constexpr GLsizei STRIDE = 10 * sizeof(float);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)0);
     glEnableVertexAttribArray(0);
@@ -249,10 +256,12 @@ void Chunk::buildMesh() {
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)(5 * sizeof(float)));
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, STRIDE, (void*)(8 * sizeof(float)));  
-    glEnableVertexAttribArray(3);                                                          
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, STRIDE, (void*)(8 * sizeof(float)));
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, STRIDE, (void*)(9 * sizeof(float)));
+    glEnableVertexAttribArray(4);
 
-    m_vertexCount = (GLsizei)(verts.size() / 9);
+    m_vertexCount = (GLsizei)(verts.size() / 10);
 }
 
 void Chunk::draw() const {
